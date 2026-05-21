@@ -6,11 +6,13 @@
         C5: "#0ea5e9", C6: "#6366f1", C7: "#14b8a6", C8: "#1f2937",
         C9: "#e11d48", C10: "#9ca3af"
     };
+    const FG_TOKEN_KEY = "forgensic_token";
     const FG_MAX_UPLOAD = 25 * 1024 * 1024;
     const FG_LOCAL = "http://localhost:8004";
-    const FG_BASE = window.location.hostname === "localhost"
+    const FG_IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const FG_BASE = FG_IS_LOCAL
         ? FG_LOCAL
-        : "/forgensic";
+        : `${window.location.origin}/forgensic`;
 
     let fgFile = null;
     let fgJobId = null;
@@ -20,13 +22,55 @@
     let fgFindingsFileName = "";
     let fgBusy = false;
     let fgShowAllFindings = false;
-    let fgPreviewVisible = false;
+    let fgPreviewVisible = true;
     let fgFocusedFinding = null;
     let fgSelectedFinding = null;
     let fgPendingPage = null;
     var FG_DEFAULT_LIMIT = 5;
 
     function $(id) { return document.getElementById(id); }
+
+    function fgGetToken() {
+        return sessionStorage.getItem(FG_TOKEN_KEY) || "";
+    }
+
+    function fgStoreToken(token) {
+        sessionStorage.setItem(FG_TOKEN_KEY, token);
+    }
+
+    async function fgEnsureToken() {
+        const existing = fgGetToken();
+        if (existing) return existing;
+        try {
+            const r = await fetch(`${FG_BASE}/api/token`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: "UI User", email: "ui@nhcx.tanuh.ai" }),
+                signal: AbortSignal.timeout(10000),
+            });
+            if (!r.ok) return "";
+            const { access_token } = await r.json();
+            if (access_token) fgStoreToken(access_token);
+            return access_token || "";
+        } catch (_) {
+            return "";
+        }
+    }
+
+    async function fgAuthFetch(url, opts = {}) {
+        const token = fgGetToken();
+        if (token) {
+            opts.headers = { ...(opts.headers || {}), Authorization: `Bearer ${token}` };
+        }
+        return fetch(url, opts);
+    }
+
+    async function fgFetchObjectUrl(url) {
+        const res = await fgAuthFetch(url, { method: "GET" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+    }
 
     function fmtBytes(b) {
         if (!b) return "0 MB";
@@ -61,21 +105,29 @@
         if (g) g.style.display = show ? "grid" : "none";
     }
 
+    function setTamperedNeutral(message) {
+        var el = $("fgTamperedFlag");
+        if (!el) return;
+        el.classList.remove("fg-tampered-yes", "fg-tampered-no");
+        el.classList.add("fg-tampered-neutral");
+        el.innerHTML = '<i class="fas fa-hourglass-half"></i> Tampered: <strong>—</strong> ' + message;
+    }
+
     function setTampered(summary) {
         var el = $("fgTamperedFlag");
         if (!el) return;
+        if (!summary) {
+            setTamperedNeutral("Awaiting analysis.");
+            return;
+        }
         var keys = Object.keys(summary || {}).filter(function (k) { return summary[k]; });
         var clean = keys.length === 0 || (keys.length === 1 && keys[0] === "C10");
-        el.style.display = "block";
+        el.classList.remove("fg-tampered-neutral", "fg-tampered-yes", "fg-tampered-no");
         if (clean) {
-            el.style.background = "#f0fdf4";
-            el.style.color = "#15803d";
-            el.style.borderLeft = "4px solid #22c55e";
+            el.classList.add("fg-tampered-no");
             el.innerHTML = '<i class="fas fa-check-circle"></i> Tampered: <strong>No</strong> — Document appears clean.';
         } else {
-            el.style.background = "#fef2f2";
-            el.style.color = "#b91c1c";
-            el.style.borderLeft = "4px solid #ef4444";
+            el.classList.add("fg-tampered-yes");
             el.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Tampered: <strong>Yes</strong> — Suspicious regions detected.';
         }
     }
@@ -131,7 +183,7 @@
 
         items.forEach(function (item) {
             var row = document.createElement("div");
-            row.style.cssText = "padding:8px 0; border-bottom:1px solid #1e293b; display:flex; justify-content:space-between; align-items:center; gap:8px;";
+            row.className = "fg-finding-row";
 
             var txt = document.createElement("span");
             txt.textContent = item.summary || "Finding";
@@ -140,7 +192,7 @@
             if (item.box) {
                 var btn = document.createElement("button");
                 btn.textContent = "View area";
-                btn.style.cssText = "background:#334155; color:#e2e8f0; border:none; padding:3px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer; white-space:nowrap;";
+                btn.className = "fg-view-area-btn";
                 btn.onclick = function () {
                     fgSelectedFinding = { page: item.page, categoryId: item.category_id, box: item.box };
                     updateShowInDocBtn();
@@ -165,7 +217,7 @@
         if (btn) btn.disabled = !fgSelectedFinding;
     }
 
-    function renderPreview(pageData) {
+    async function renderPreview(pageData) {
         var img = $("fgPreviewImage");
         var empty = $("fgPreviewEmpty");
         var overlay = $("fgPreviewOverlay");
@@ -174,16 +226,24 @@
         var url = pageData.image_url || pageData.preview_url;
         if (!url) return;
         var resolved = url.startsWith("http") ? url : FG_BASE + url;
+        try {
+            var objectUrl = await fgFetchObjectUrl(resolved);
+            var prevUrl = img.dataset.fgObjectUrl;
+            if (prevUrl) URL.revokeObjectURL(prevUrl);
+            img.dataset.fgObjectUrl = objectUrl;
 
-        img.onload = function () {
-            if (empty) empty.style.display = "none";
-            img.style.display = "block";
-            renderOverlay(pageData, img, overlay);
-        };
-        img.onerror = function () {
+            img.onload = function () {
+                if (empty) empty.style.display = "none";
+                img.style.display = "block";
+                renderOverlay(pageData, img, overlay);
+            };
+            img.onerror = function () {
+                if (empty) { empty.textContent = "Preview failed to load."; empty.style.display = "block"; }
+            };
+            img.src = objectUrl;
+        } catch (_) {
             if (empty) { empty.textContent = "Preview failed to load."; empty.style.display = "block"; }
-        };
-        img.src = resolved;
+        }
     }
 
     function renderOverlay(pageData, img, overlay) {
@@ -225,7 +285,7 @@
         });
     }
 
-    function openFgCrop(pageNum, box, catId) {
+    async function openFgCrop(pageNum, box, catId) {
         var modal = $("fgCropModal");
         var cropImg = $("fgCropImage");
         var meta = $("fgCropMeta");
@@ -236,28 +296,37 @@
         if (!imgUrl) return;
         var resolved = imgUrl.startsWith("http") ? imgUrl : FG_BASE + imgUrl;
 
-        var tmp = new Image();
-        tmp.crossOrigin = "anonymous";
-        tmp.onload = function () {
-            var canvas = document.createElement("canvas");
-            canvas.width = box.w;
-            canvas.height = box.h;
-            var ctx = canvas.getContext("2d");
-            ctx.drawImage(tmp, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
-            cropImg.src = canvas.toDataURL("image/png");
-            if (meta) meta.textContent = "Page " + pageNum + " · " + box.w + "×" + box.h + "px · " + (catId || "");
-            modal.style.display = "flex";
-        };
-        tmp.onerror = function () {
+        try {
+            var objectUrl = await fgFetchObjectUrl(resolved);
+            var tmp = new Image();
+            tmp.onload = function () {
+                var canvas = document.createElement("canvas");
+                canvas.width = box.w;
+                canvas.height = box.h;
+                var ctx = canvas.getContext("2d");
+                ctx.drawImage(tmp, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+                cropImg.src = canvas.toDataURL("image/png");
+                if (meta) meta.textContent = "Page " + pageNum + " · " + box.w + "×" + box.h + "px · " + (catId || "");
+                modal.style.display = "flex";
+                URL.revokeObjectURL(objectUrl);
+            };
+            tmp.onerror = function () {
+                URL.revokeObjectURL(objectUrl);
+                if (window.showToast) window.showToast("Preview Error", "Failed to load region preview", "error");
+            };
+            tmp.src = objectUrl;
+        } catch (_) {
             if (window.showToast) window.showToast("Preview Error", "Failed to load region preview", "error");
-        };
-        tmp.src = resolved;
+        }
     }
 
-    function uploadXHR(formData, onProgress) {
+    function uploadXHR(formData, onProgress, token) {
         return new Promise(function (resolve, reject) {
             var xhr = new XMLHttpRequest();
             xhr.open("POST", FG_BASE + "/jobs");
+            if (token) {
+                xhr.setRequestHeader("Authorization", "Bearer " + token);
+            }
             xhr.upload.addEventListener("progress", function (e) {
                 if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
             });
@@ -277,7 +346,13 @@
         setProgress("Queued…", 10);
         var poll = setInterval(async function () {
             try {
-                var res = await fetch(FG_BASE + "/jobs/" + jobId);
+                var res = await fgAuthFetch(FG_BASE + "/jobs/" + jobId);
+                if (res.status === 401) {
+                    clearInterval(poll);
+                    setProgress("Token expired. Refresh and request a new token.", 0);
+                    setBusy(false);
+                    return;
+                }
                 if (!res.ok) return;
                 var data = await res.json();
                 var pct = (data.progress || 0.2) * 100;
@@ -300,7 +375,11 @@
 
     async function loadResults(jobId) {
         try {
-            var res = await fetch(FG_BASE + "/jobs/" + jobId + "/results");
+            var res = await fgAuthFetch(FG_BASE + "/jobs/" + jobId + "/results");
+            if (res.status === 401) {
+                setProgress("Token expired. Refresh and request a new token.", 0);
+                return;
+            }
             if (!res.ok) { setProgress("Failed to load results", 0); return; }
             fgResults = await res.json();
             fgResults.job_id = fgResults.job_id || jobId;
@@ -332,9 +411,12 @@
         if (pages.length) {
             fgPendingPage = pages[0];
             var toggleBtn = $("fgTogglePreview");
-            if (toggleBtn) toggleBtn.textContent = "Show rendered document";
+            if (toggleBtn) toggleBtn.textContent = fgPreviewVisible ? "Hide annotated document" : "Show annotated document";
             var overlayBtn = $("fgShowAllOverlays");
             if (overlayBtn) overlayBtn.disabled = true;
+            if (fgPreviewVisible && fgPendingPage) {
+                renderPreview(fgPendingPage);
+            }
         }
     }
 
@@ -372,20 +454,33 @@
 
         setBusy(true);
         fgResults = null;
-        showGrid(false);
-        var flag = $("fgTamperedFlag");
-        if (flag) flag.style.display = "none";
+        showGrid(true);
+        setTamperedNeutral("Analyzing document...");
         setInference(null);
         setProgress("Uploading…", 2);
+        var findings = $("fgFindingsList");
+        if (findings) findings.textContent = "Processing...";
+        var empty = $("fgPreviewEmpty");
+        if (empty) empty.textContent = "Annotated preview will appear here.";
+        var img = $("fgPreviewImage");
+        if (img) img.style.display = "none";
 
         var form = new FormData();
         form.append("file", fgFile);
         form.append("ocr_enabled", "true");
 
+        var token = await fgEnsureToken();
+        if (!token) {
+            setProgress("Authentication failed", 0);
+            setBusy(false);
+            if (window.showToast) window.showToast("Auth Error", "Could not obtain a demo token.", "error");
+            return;
+        }
+
         try {
             var data = await uploadXHR(form, function (p) {
                 setProgress("Uploading " + Math.round(p * 100) + "%", Math.min(85, p * 85));
-            });
+            }, token);
             fgJobId = data.job_id;
             setProgress("Queued", 90);
             pollJob(fgJobId);
@@ -433,7 +528,7 @@
         if (!viewer) return;
         fgPreviewVisible = !fgPreviewVisible;
         viewer.style.display = fgPreviewVisible ? "block" : "none";
-        if (btn) btn.textContent = fgPreviewVisible ? "Hide rendered document" : "Show rendered document";
+        if (btn) btn.textContent = fgPreviewVisible ? "Hide annotated document" : "Show annotated document";
         if (fgPreviewVisible && fgPendingPage) {
             renderPreview(fgPendingPage);
         }

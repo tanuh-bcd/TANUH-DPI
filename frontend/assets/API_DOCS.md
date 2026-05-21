@@ -7,19 +7,20 @@
 
 ## Overview
 
-The NHCX platform exposes **three independent API services**. Each service requires its own bearer token; tokens are **not interchangeable** across services.
+The NHCX platform exposes **four independent API services**. Each service requires its own bearer token; tokens are **not interchangeable** across services.
 
 | Service | Base URL | Port | Token Endpoint |
 |---------|----------|------|----------------|
 | ABDM FHIR Extraction | `/pdf2abdm` | 8000 | `POST /api/token` |
 | NHCX Insurance Extraction | `/pdf2nhcx` | 8001 | `POST /api/token` |
 | Privacy Filter | `/privacy-filter` | 8003 (→ 8080) | `POST /api/token` |
+| Forgery Detection | `/forgensic` | 8004 | `POST /api/token` |
 
 ---
 
 ## Authentication
 
-All three services use **HS256 JWT bearer tokens**. The tokens are **independent** — each service issues and validates its own tokens using its own `SECRET_KEY`.
+All services use **HS256 JWT bearer tokens**. The tokens are **independent** — each service issues and validates its own tokens using its own `SECRET_KEY`.
 
 ### Getting a Token
 
@@ -36,6 +37,11 @@ curl -X POST https://nhcxhackathon.tanuh.ai/pdf2nhcx/api/token \
 
 # Privacy Filter token
 curl -X POST https://nhcxhackathon.tanuh.ai/privacy-filter/api/token \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Your Name", "email": "you@example.com"}'
+
+# Forgery token
+curl -X POST https://dpi-dev.tanuh.ai/forgensic/api/token \
   -H "Content-Type: application/json" \
   -d '{"name": "Your Name", "email": "you@example.com"}'
 ```
@@ -217,7 +223,40 @@ Three detection layers run on every request:
 
 ---
 
-## Python SDK Example (All 3 Services)
+---
+
+## 4. Forgery Detection API (`/forgensic`)
+
+> Document forgery detection with explainable bounding-box overlays.
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/forgensic/health` | None | Service liveness check |
+| `GET` | `/forgensic/stats` | None | Usage counters for the dashboard |
+| `POST` | `/forgensic/api/token` | None | Issue a 1-day demo JWT |
+| `POST` | `/forgensic/jobs` | ✅ Bearer | Upload document and create processing job |
+| `GET` | `/forgensic/jobs/{job_id}` | ✅ Bearer | Poll job status and progress |
+| `GET` | `/forgensic/jobs/{job_id}/results` | ✅ Bearer | Fetch forgery analysis results |
+| `GET` | `/forgensic/jobs/{job_id}/files/{file_name}` | ✅ Bearer | Fetch annotated preview or page image |
+
+### `POST /forgensic/jobs` — Create Job
+
+```bash
+TOKEN=$(curl -s -X POST https://dpi-dev.tanuh.ai/forgensic/api/token \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test","email":"test@example.com"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+curl -X POST https://dpi-dev.tanuh.ai/forgensic/jobs \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@document.pdf" \
+  -F "ocr_enabled=true"
+```
+
+---
+
+## Python SDK Example (All 4 Services)
 
 ```python
 import requests

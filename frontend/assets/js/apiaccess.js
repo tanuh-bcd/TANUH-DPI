@@ -1,6 +1,6 @@
 /**
  * apiaccess.js - Logic for the API Access tab
- * Each service (ABDM, NHCX, Privacy Filter) has its own form and token.
+ * Each service (ABDM, NHCX, Forgery) has its own form and token.
  */
 (function() {
     "use strict";
@@ -50,8 +50,12 @@
             document.getElementById(resultId)?.classList.add('hidden');
 
             try {
+                const isLocal = window.location.hostname === 'localhost';
+                const endpointPath = isLocal
+                    ? endpoint.replace(/^\/forgensic(?=\/)/, '')
+                    : endpoint;
                 const base = _resolveBase(endpoint);
-                const r = await fetch(`${base}${endpoint}`, {
+                const r = await fetch(`${base}${endpointPath}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, email })
@@ -78,10 +82,11 @@
     }
 
     function _resolveBase(endpoint) {
-        if (window.location.hostname === 'localhost') {
-            if (endpoint.includes('privacy')) return 'http://localhost:8003';
-            if (endpoint.includes('abdm'))    return 'http://localhost:8000';
-            if (endpoint.includes('nhcx'))    return 'http://localhost:8001';
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            if (endpoint.includes('privacy'))   return 'http://localhost:8003';
+            if (endpoint.includes('abdm'))      return 'http://localhost:8000';
+            if (endpoint.includes('nhcx'))      return 'http://localhost:8001';
+            if (endpoint.includes('forgensic')) return 'http://localhost:8004';
         }
         return window.location.origin;
     }
@@ -151,6 +156,19 @@
             outputId:   'apiNhcxTokenOutput',
             errorId:    'apiNhcxTokenError',
             copyId:     'apiNhcxTokenCopy',
+        });
+
+        // Forgery Detection — Forgensic
+        handleTokenRequest({
+            formId:     'apiForgeryTokenForm',
+            endpoint:   '/forgensic/api/token',
+            storageKey: 'forgensic_token',
+            resultId:   'apiForgeryTokenResult',
+            greetingId: 'apiForgeryTokenGreeting',
+            expiryId:   'apiForgeryTokenExpiry',
+            outputId:   'apiForgeryTokenOutput',
+            errorId:    'apiForgeryTokenError',
+            copyId:     'apiForgeryTokenCopy',
         });
 
         // Privacy Filter is a standalone Cloud Run service with its own UI and token system.

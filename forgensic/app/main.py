@@ -1,4 +1,5 @@
 import mimetypes
+import os
 import shutil
 import uuid
 from time import perf_counter
@@ -7,9 +8,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from pydantic import BaseModel, EmailStr
 
 from .config import (
     CORS_ORIGINS,
@@ -23,6 +25,7 @@ from .config import (
     PIPELINE_PRESET,
     PIPELINE_VERSION,
 )
+from .auth import require_bearer, issue_demo_token
 from .models import JobCreateResponse, JobResultResponse, JobStatusResponse
 from .pipeline import DetectedRegion, DocumentPage, PageAnalysisResult, build_findings_summary, run_pipeline
 
@@ -43,6 +46,12 @@ _executor = ThreadPoolExecutor(max_workers=JOB_EXECUTOR_WORKERS)
 _JOB_STATE: Dict[str, Dict[str, Any]] = {}
 _JOB_RESULTS: Dict[str, Dict[str, Any]] = {}
 _JOB_FILE_BYTES: Dict[str, Dict[str, Dict[str, Any]]] = {}
+_TOTAL_ANALYZED: int = 0
+
+
+class TokenRequest(BaseModel):
+    name: str
+    email: EmailStr
 
 
 def _now_iso() -> str:
@@ -274,6 +283,8 @@ def _process_job(job_id: str, file_path: Path, preset: str, ocr_enabled: bool) -
             avg_inference_seconds,
         )
         _JOB_RESULTS[job_id] = payload
+        global _TOTAL_ANALYZED
+        _TOTAL_ANALYZED += 1
 
         summary_payload = {
             "job_id": job_id,
@@ -316,10 +327,32 @@ async def health() -> Dict[str, Any]:
     return {"ok": True, "time": _now_iso()}
 
 
+@app.get("/stats")
+async def stats() -> Dict[str, Any]:
+    active = sum(1 for s in _JOB_STATE.values() if s.get("status") in ("queued", "processing"))
+    return {"docs_analyzed": _TOTAL_ANALYZED, "active_jobs": active}
+
+
+@app.post("/api/token")
+async def create_token(body: TokenRequest, request: Request) -> Dict[str, Any]:
+    """Issue a signed demo JWT valid for 1 day."""
+    expiry_days = int(os.getenv("FORGENSIC_TOKEN_EXPIRY_DAYS", "1"))
+    token = issue_demo_token(body.name, body.email, expiry_days)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in_days": expiry_days,
+        "name": body.name,
+        "email": body.email,
+        "service": "forgensic",
+    }
+
+
 @app.post("/jobs", response_model=JobCreateResponse)
 async def create_job(
     file: UploadFile = File(...),
     ocr_enabled: Optional[bool] = Form(None),
+    _claims: Dict[str, Any] = Depends(require_bearer),
 ) -> JobCreateResponse:
     _cleanup_jobs()
     if not file.filename or not _allowed_suffix(file.filename):
@@ -353,7 +386,10 @@ async def create_job(
 
 
 @app.get("/jobs/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: str) -> JobStatusResponse:
+async def get_job_status(
+    job_id: str,
+    _claims: Dict[str, Any] = Depends(require_bearer),
+) -> JobStatusResponse:
     _cleanup_jobs()
     state = _JOB_STATE.get(job_id)
     if not state:
@@ -370,7 +406,10 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
 
 
 @app.get("/jobs/{job_id}/results", response_model=JobResultResponse)
-async def get_job_results(job_id: str) -> JobResultResponse:
+async def get_job_results(
+    job_id: str,
+    _claims: Dict[str, Any] = Depends(require_bearer),
+) -> JobResultResponse:
     _cleanup_jobs()
     payload = _JOB_RESULTS.get(job_id)
     if not payload:
@@ -380,7 +419,11 @@ async def get_job_results(job_id: str) -> JobResultResponse:
 
 
 @app.get("/jobs/{job_id}/files/{file_name}")
-async def get_job_file(job_id: str, file_name: str):
+async def get_job_file(
+    job_id: str,
+    file_name: str,
+    _claims: Dict[str, Any] = Depends(require_bearer),
+):
     _cleanup_jobs()
     job_files = _JOB_FILE_BYTES.get(job_id, {})
     entry = job_files.get(file_name)

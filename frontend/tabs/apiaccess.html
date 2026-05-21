@@ -1,7 +1,7 @@
 <div class="tab-header">
     <div class="tab-header-text">
         <h2><i class="fas fa-key" style="color:var(--primary)"></i> API Access</h2>
-        <p>Get separate developer tokens for each NHCX microservice. Tokens are valid for 24 hours.</p>
+        <p>Get separate developer tokens for each service. Tokens are valid for 24 hours.</p>
     </div>
     <div class="tab-header-logos">
         <img src="assets/tanuh.png" alt="Tanuh Logo" class="logo">
@@ -17,7 +17,7 @@
     </p>
 </div>
 
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:18px; margin-bottom:28px;">
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:18px; margin-bottom:28px;">
 
     <!-- Clinical Document (ABDM) card -->
     <div class="pf-demo-token-card">
@@ -91,6 +91,42 @@
         <div id="apiNhcxTokenError" class="pf-demo-token-error hidden"></div>
     </div>
 
+    <!-- Forgery Detection (Forgensic) card -->
+    <div class="pf-demo-token-card">
+        <div class="pf-demo-token-header">
+            <i class="fas fa-search-plus" style="color:#14868C;"></i>
+            <span>Forgery Detection API&nbsp;<small style="font-weight:400;color:#64748b;">(forgensic)</small></span>
+            <span class="pf-demo-token-badge">1-DAY TOKEN</span>
+        </div>
+        <p style="font-size:0.88rem;color:#64748b;margin:0 0 14px;">Classical forensic analysis for tampering detection.</p>
+        <form id="apiForgeryTokenForm" class="pf-demo-token-form" autocomplete="off" novalidate>
+            <div class="pf-demo-token-fields">
+                <div class="pf-demo-token-field">
+                    <label for="apiForgeryTokenName">Full Name</label>
+                    <input type="text" id="apiForgeryTokenName" placeholder="Your name" required />
+                </div>
+                <div class="pf-demo-token-field">
+                    <label for="apiForgeryTokenEmail">Email Address</label>
+                    <input type="email" id="apiForgeryTokenEmail" placeholder="you@example.com" required />
+                </div>
+            </div>
+            <button type="submit" class="pf-btn pf-btn-primary" id="apiForgeryTokenSubmit">
+                <i class="fas fa-bolt"></i> Request Forgery Token
+            </button>
+        </form>
+        <div id="apiForgeryTokenResult" class="pf-demo-token-result hidden">
+            <div class="pf-demo-token-result-header">
+                <span id="apiForgeryTokenGreeting"></span>
+                <span id="apiForgeryTokenExpiry" class="pf-demo-token-expiry"></span>
+            </div>
+            <div class="pf-demo-token-output-wrap">
+                <pre class="pf-demo-token-output" id="apiForgeryTokenOutput"></pre>
+                <button class="pf-demo-token-copy pf-btn" id="apiForgeryTokenCopy"><i class="fas fa-copy"></i> Copy</button>
+            </div>
+        </div>
+        <div id="apiForgeryTokenError" class="pf-demo-token-error hidden"></div>
+    </div>
+
 </div>
 
 <!-- ── Endpoint Reference ── -->
@@ -140,6 +176,31 @@
                 <tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:7px 12px;"><span class="pf-http-verb get" style="font-size:0.78rem;">GET</span></td><td><code>/pdf2nhcx/task-status/{id}</code></td><td>&#128275; Open</td><td>Poll async task status (PENDING / SUCCESS / FAILURE)</td></tr>
                 <tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:7px 12px;"><span class="pf-http-verb get" style="font-size:0.78rem;">GET</span></td><td><code>/pdf2nhcx/health</code></td><td>&#128275; Open</td><td>Service liveness + model status</td></tr>
                 <tr><td style="padding:7px 12px;"><span class="pf-http-verb get" style="font-size:0.78rem;">GET</span></td><td><code>/pdf2nhcx/model-health</code></td><td>&#128275; Open</td><td>AI model readiness check</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Forgery Detection (Forgensic) -->
+<div style="margin-bottom:20px;">
+    <h4 style="margin:0 0 10px;font-size:0.9rem;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;"><i class="fas fa-search-plus" style="color:#14868C;"></i> Forgery Detection API — <code style="font-size:0.85em;">/forgensic</code></h4>
+    <div style="background:#fdfcfc;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.86rem;">
+            <thead>
+                <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                    <th style="text-align:left;padding:8px 12px;color:#0e6a6f;width:70px;">Method</th>
+                    <th style="text-align:left;padding:8px 12px;color:#0e6a6f;">Path</th>
+                    <th style="text-align:left;padding:8px 12px;color:#0e6a6f;width:100px;">Auth</th>
+                    <th style="text-align:left;padding:8px 12px;color:#0e6a6f;">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:7px 12px;"><span class="pf-http-verb post" style="font-size:0.78rem;">POST</span></td><td><code>/forgensic/api/token</code></td><td>&#128275; Open</td><td>Issue a 1-day demo JWT for the Forgery API</td></tr>
+                <tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:7px 12px;"><span class="pf-http-verb post" style="font-size:0.78rem;">POST</span></td><td><code>/forgensic/jobs</code></td><td>&#128274; Bearer</td><td>Upload a document and create a processing job</td></tr>
+                <tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:7px 12px;"><span class="pf-http-verb get" style="font-size:0.78rem;">GET</span></td><td><code>/forgensic/jobs/{job_id}</code></td><td>&#128274; Bearer</td><td>Poll job status and progress</td></tr>
+                <tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:7px 12px;"><span class="pf-http-verb get" style="font-size:0.78rem;">GET</span></td><td><code>/forgensic/jobs/{job_id}/results</code></td><td>&#128274; Bearer</td><td>Fetch complete forgery analysis results</td></tr>
+                <tr style="border-bottom:1px solid #f0f4f8;"><td style="padding:7px 12px;"><span class="pf-http-verb get" style="font-size:0.78rem;">GET</span></td><td><code>/forgensic/jobs/{job_id}/files/{file_name}</code></td><td>&#128274; Bearer</td><td>Fetch cached annotated preview or page image</td></tr>
+                <tr><td style="padding:7px 12px;"><span class="pf-http-verb get" style="font-size:0.78rem;">GET</span></td><td><code>/forgensic/health</code></td><td>&#128275; Open</td><td>Service health check</td></tr>
             </tbody>
         </table>
     </div>
