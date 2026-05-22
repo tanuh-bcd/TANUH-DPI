@@ -13,3 +13,6 @@ pytesseract
 pyyaml
 pandas
 openpyxl
+# ── Async task queue ───────────────────────────────────────────────────────────
+celery[redis]==5.4.0
+redis==5.0.8
