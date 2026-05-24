@@ -54,6 +54,12 @@
             if ((tabName === 'PDF2FHIR' || tabName === 'PDF2NHCX' || tabName === 'ForgeryDetection') && window.initApiAccess) {
                 window.initApiAccess();
             }
+
+            // Hide the AI status badge on the Forgery Detection tab — Forgensic uses no AI.
+            const aiBadgeBar = document.querySelector('.header-ai-bar');
+            if (aiBadgeBar) {
+                aiBadgeBar.style.display = (tabName === 'ForgeryDetection') ? 'none' : '';
+            }
         }
 
         try { mixpanel.track('Page View', { 'page_title': tabName }); } catch(e) {}

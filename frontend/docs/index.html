@@ -60,10 +60,11 @@
             <a href="#fhir-validation" class="sidebar-link" onclick="navigateTo('fhir-validation')">Validation &amp; Sanitization</a>
         </div>
         <div class="sidebar-section">
-            <div class="sidebar-section-title">Operations</div>
-            <a href="#deployment" class="sidebar-link" onclick="navigateTo('deployment')">Deployment</a>
-            <a href="#concurrency" class="sidebar-link" onclick="navigateTo('concurrency')">Concurrency Model</a>
-            <a href="#monitoring" class="sidebar-link" onclick="navigateTo('monitoring')">Monitoring &amp; Logging</a>
+            <div class="sidebar-section-title">Forgery Detection</div>
+            <a href="#forgensic-overview" class="sidebar-link" onclick="navigateTo('forgensic-overview')"><i class="fas fa-search-plus" style="margin-right:5px;font-size:0.8rem;"></i>Overview &amp; Architecture</a>
+            <a href="#forgensic-pipeline" class="sidebar-link" onclick="navigateTo('forgensic-pipeline')"><i class="fas fa-project-diagram" style="margin-right:5px;font-size:0.8rem;"></i>CV Detection Pipeline</a>
+            <a href="#forgensic-api" class="sidebar-link" onclick="navigateTo('forgensic-api')"><i class="fas fa-code" style="margin-right:5px;font-size:0.8rem;"></i>Forgensic API Reference</a>
+            <a href="#forgensic-deploy" class="sidebar-link" onclick="navigateTo('forgensic-deploy')"><i class="fas fa-server" style="margin-right:5px;font-size:0.8rem;"></i>Deployment &amp; Config</a>
         </div>
     </aside>
 
@@ -101,6 +102,11 @@
                     <div class="card-icon"><i class="fas fa-code" style="color: var(--primary)"></i></div>
                     <h4>REST API</h4>
                     <p>Synchronous and asynchronous endpoints for integration</p>
+                </a>
+                <a class="doc-card" href="#forgensic-overview" onclick="navigateTo('forgensic-overview')">
+                    <div class="card-icon"><i class="fas fa-search-plus" style="color: var(--primary)"></i></div>
+                    <h4>Forgery Detection</h4>
+                    <p>Classical CV forensics: detect tampering, splicing, and forgery in clinical documents.</p>
                 </a>
             </div>
 
@@ -1045,6 +1051,402 @@ docker exec redis redis-cli ping
 
 # Queue depth (pending tasks)
 docker exec redis redis-cli LLEN celery</code></pre>
+        </section>
+
+
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <!-- FORGENSIC: Overview & Architecture -->
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <section id="forgensic-overview" class="doc-section">
+            <h1><i class="fas fa-search-plus" style="color:var(--primary); margin-right:10px;"></i>Forgery Detection &mdash; Forgensic</h1>
+            <p>Forgensic is a <strong>classical computer-vision forensic analysis system</strong> developed by TANUH at IISc Bengaluru for the AB PMJAY Auto-Adjudication Hackathon. It detects tampering, splicing, copy-paste, and manipulation in clinical and administrative documents without any machine-learning inference. The pipeline is deterministic, explainable, and runs entirely on CPU.</p>
+
+            <div class="callout callout-info">
+                <strong>No AI / No GPU required</strong>
+                Forgensic uses only classical OpenCV operations and PyMuPDF. Unlike the PDF2ABDM and PDF2NHCX pipelines which rely on Vertex AI Gemma 4, Forgensic has <em>zero LLM dependency</em> and can run fully offline.
+            </div>
+
+            <h2>Key Metrics</h2>
+            <table>
+                <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                <tbody>
+                    <tr><td>Processing speed</td><td>&lt; 2 seconds per page (CPU only)</td></tr>
+                    <tr><td>Production throughput</td><td>500+ concurrent requests (Celery prefork pool)</td></tr>
+                    <tr><td>Forgery categories detected</td><td>10 (C1 &ndash; C10)</td></tr>
+                    <tr><td>Supported formats</td><td>PDF (multi-page), JPG, PNG, BMP, TIFF, WebP</td></tr>
+                    <tr><td>Max file size</td><td>25 MB</td></tr>
+                    <tr><td>GPU requirement</td><td>None &mdash; pure CPU</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Production Architecture</h2>
+            <p>The production stack decouples the HTTP API from the CPU-bound CV pipeline using <strong>Celery + Redis</strong>, enabling horizontal scaling with zero thread-safety issues.</p>
+
+            <div class="flow-diagram">
+  Browser / API Client
+         |
+         v
+  +--------------------------+
+  |  Nginx Reverse Proxy     |  dpi-dev.tanuh.ai / :443
+  +------------+-------------+
+               | /forgensic/*
+               v
+  +--------------------------+
+  |  FastAPI  (Uvicorn :8004)|  forgensic/app/main.py
+  |  POST /jobs              |  - Validates JWT
+  |  GET  /jobs/{id}         |  - Saves file to DATA_DIR
+  |  GET  /jobs/{id}/results |  - Dispatches Celery task
+  |  GET  /jobs/{id}/files/* |  - Reads state from Redis
+  +------------+-------------+
+               | task.apply_async()
+               v
+  +--------------------------+
+  |  Redis  :6379            |  Broker + result backend
+  |  Queue: forgensic        |  Job state JSON  (TTL 1 h)
+  +------------+-------------+
+               | consume
+               v
+  +--------------------------+
+  |  Celery Workers          |  forgensic/tasks.py
+  |  prefork (Linux/Docker)  |  run_pipeline() -&gt; OpenCV
+  |  --concurrency = N vCPU  |  writes results -&gt; Redis
+  +--------------------------+</div>
+
+            <h2>Service File Map</h2>
+            <table>
+                <thead><tr><th>File</th><th>Role</th></tr></thead>
+                <tbody>
+                    <tr><td><code>forgensic/app/main.py</code></td><td>FastAPI app: JWT auth, job creation, status, file serving endpoints</td></tr>
+                    <tr><td><code>forgensic/celery_app.py</code></td><td>Celery application instance, Redis broker configuration</td></tr>
+                    <tr><td><code>forgensic/tasks.py</code></td><td>Celery task: runs pipeline, writes structured results to Redis</td></tr>
+                    <tr><td><code>forgensic/app/pipeline.py</code></td><td>All OpenCV / PyMuPDF / OCR logic (~3,000 lines)</td></tr>
+                    <tr><td><code>forgensic/app/config.py</code></td><td>Environment variable bindings (REDIS_URL, DATA_DIR, presets)</td></tr>
+                    <tr><td><code>forgensic/app/utils.py</code></td><td>Shared JSON serialisers &mdash; breaks circular imports between main &amp; tasks</td></tr>
+                    <tr><td><code>forgensic/Dockerfile</code></td><td>Multi-stage Docker image for API and worker</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <!-- FORGENSIC: CV Detection Pipeline -->
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <section id="forgensic-pipeline" class="doc-section">
+            <h1>Forgensic &mdash; CV Detection Pipeline</h1>
+            <p>Every uploaded page passes through the following sequence of classical computer vision checks. The pipeline behaviour is controlled by the <code>PIPELINE_PRESET</code> environment variable.</p>
+
+            <h2>Pipeline Stages</h2>
+            <div class="pipeline-steps">
+                <div class="pipeline-step">
+                    <h4>1. Image Pre-processing &amp; Page Rendering</h4>
+                    <p>PDF pages rendered to high-resolution JPG via <strong>PyMuPDF (fitz)</strong>. Single image files are loaded directly. DPI scaling is applied for detection accuracy on lower-resolution scans.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>2. Copy-Paste Detection (C1)</h4>
+                    <p>ORB keypoint extraction + FLANN-based KNN matching to find duplicate regions within the same page. Block-level perceptual hashing catches compressed re-saves. Flagged region bounding boxes are stored for the frontend overlay.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>3. Overwriting Detection (C2)</h4>
+                    <p>Edge density and stroke-width analysis within text-line bounding boxes. Ink inconsistency is scored against the surrounding line's baseline stroke profile. High-contrast edge clusters in unexpected positions indicate overwritten content.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>4. Added Content Detection (C3)</h4>
+                    <p>Stamp and signature heuristics: HSV colour saturation thresholding, contour shape analysis, and aspect-ratio filtering. Catches rubber-stamp marks, signature overlays, and pasted image regions that have different colour profiles from the document background.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>5. Erasure Detection (C4)</h4>
+                    <p>Laplacian noise variance and gradient smoothness analysis in regions adjacent to text lines. Abnormally smooth zones (white-out, digital erase, paint-bucket fills) produce near-zero Laplacian variance — a strong erasure signal.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>6. Document Merge Detection (C5)</h4>
+                    <p>The page is divided into horizontal bands. Laplacian variance (noise fingerprint) is computed per band. A statistically significant jump between the header band and the body band indicates the page was assembled from documents printed on different printers or scanned at different qualities.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>7. Watermark Removal Detection (C6)</h4>
+                    <p>FFT frequency domain analysis detects residual ghost patterns left by watermark removal tools. Background uniformity scoring identifies pixel-level artifacts that betray post-processing.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>8. Irregular Spacing Detection (C7)</h4>
+                    <p>Word-level bounding boxes from the Tesseract OCR pass are used to measure inter-token distances on each line. Statistical outlier detection (IQR method) flags lines where a gap is abnormally wider than the document's typical spacing — a sign of inserted or deleted words.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>9. AI-Generated / AI-Edited Flags (C8, C9)</h4>
+                    <p>Texture uniformity analysis (too-smooth gradients), font embedding entropy scoring, and micro-print rendering anomaly detection are combined to flag documents that appear fully (C8) or partially (C9) AI-generated.</p>
+                </div>
+                <div class="pipeline-step">
+                    <h4>10. Annotated Preview Generation</h4>
+                    <p>All detected bounding boxes are rendered onto the page image using <strong>Pillow</strong>, colour-coded by category (e.g., red for C1 copy-paste, orange for C2 overwrite). Saved as <code>preview_{page}.jpg</code> and registered in the Redis <code>file_map</code> for serving via <code>GET /files/*</code>.</p>
+                </div>
+            </div>
+
+            <h2>Forgery Finding Categories</h2>
+            <table>
+                <thead><tr><th>Code</th><th>Label</th><th>Detection Method</th><th>Example Scenario</th></tr></thead>
+                <tbody>
+                    <tr><td><code>C1</code></td><td>Copy-Paste</td><td>ORB keypoints, block hash</td><td>Doctor's signature copied from another document</td></tr>
+                    <tr><td><code>C2</code></td><td>Overwriting</td><td>Edge density, stroke analysis</td><td>Date or amount overwritten with different ink</td></tr>
+                    <tr><td><code>C3</code></td><td>Added Content</td><td>HSV saturation, contour shape</td><td>Rubber stamp or signature pasted onto document</td></tr>
+                    <tr><td><code>C4</code></td><td>Erasure</td><td>Laplacian noise variance</td><td>Patient name white-out and overtyped</td></tr>
+                    <tr><td><code>C5</code></td><td>Document Merge</td><td>Noise fingerprint band analysis</td><td>Header from Hospital A, body from Hospital B</td></tr>
+                    <tr><td><code>C6</code></td><td>Watermark Removal</td><td>FFT frequency residuals</td><td>CONFIDENTIAL watermark digitally removed</td></tr>
+                    <tr><td><code>C7</code></td><td>Irregular Spacing</td><td>Inter-token gap statistics</td><td>Extra space inserted to change a cost figure</td></tr>
+                    <tr><td><code>C8</code></td><td>AI-Generated</td><td>Texture uniformity + font entropy</td><td>Entire document generated by an AI tool</td></tr>
+                    <tr><td><code>C9</code></td><td>AI-Edited</td><td>Partial texture anomaly</td><td>Individual paragraphs re-written with AI</td></tr>
+                    <tr><td><code>C10</code></td><td>No Discrepancy</td><td>Absence of all above signals</td><td>Clean, unmodified document</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Pipeline Presets</h2>
+            <table>
+                <thead><tr><th>Preset</th><th>Sensitivity</th><th>Recommended Use</th></tr></thead>
+                <tbody>
+                    <tr><td><code>super_loose</code></td><td>Maximum &mdash; flag anything suspicious</td><td>Production screening: catch the most forgeries</td></tr>
+                    <tr><td><code>npv_focus</code></td><td>Medium &mdash; target NPV-relevant forgeries only</td><td>Insurance adjudication workflows</td></tr>
+                    <tr><td><code>full</code></td><td>Strict &mdash; lowest false-positive rate</td><td>High-stakes legal document verification</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <!-- FORGENSIC: API Reference -->
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <section id="forgensic-api" class="doc-section">
+            <h1>Forgensic API Reference</h1>
+            <p>The Forgensic API follows an asynchronous job model. Clients upload a document, receive a <code>job_id</code>, poll for completion, then fetch results and annotated preview images.</p>
+
+            <div class="callout callout-info">
+                <strong>Base URL</strong>
+                Production: <code>https://dpi-dev.tanuh.ai/forgensic</code> &nbsp;|&nbsp; Local: <code>http://localhost:8004</code>
+            </div>
+
+            <h2>Authentication</h2>
+            <p>All endpoints (except <code>/api/token</code>, <code>/health</code>, and <code>/stats</code>) require a <strong>JWT Bearer token</strong>. Request one via the token endpoint; it is valid for 24 hours.</p>
+
+            <h2>Endpoints</h2>
+            <table>
+                <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code>POST</code></td><td><code>/api/token</code></td><td>Open</td><td>Issue a 1-day demo JWT</td></tr>
+                    <tr><td><code>POST</code></td><td><code>/jobs</code></td><td>Bearer</td><td>Upload a document and create a job</td></tr>
+                    <tr><td><code>GET</code></td><td><code>/jobs/{job_id}</code></td><td>Bearer</td><td>Poll job status and progress (0.0 &rarr; 1.0)</td></tr>
+                    <tr><td><code>GET</code></td><td><code>/jobs/{job_id}/results</code></td><td>Bearer</td><td>Fetch complete forgery analysis results</td></tr>
+                    <tr><td><code>GET</code></td><td><code>/jobs/{job_id}/files/{file_name}</code></td><td>Bearer</td><td>Download annotated preview image or page image</td></tr>
+                    <tr><td><code>GET</code></td><td><code>/health</code></td><td>Open</td><td>Service health check</td></tr>
+                    <tr><td><code>GET</code></td><td><code>/stats</code></td><td>Open</td><td>Usage counters (total jobs analyzed)</td></tr>
+                </tbody>
+            </table>
+
+            <div class="endpoint-block">
+                <div class="endpoint-header">
+                    <span class="method method-post">POST</span>
+                    <code>/api/token</code>
+                </div>
+                <div class="endpoint-body">
+                    <p><strong>Request a demo JWT token.</strong> No authentication required. Token is valid for 24 hours.</p>
+                    <h4>Request Body (JSON)</h4>
+                    <pre><code>{ "name": "Your Name", "email": "you@example.com" }</code></pre>
+                    <h4>Response</h4>
+                    <pre><code>{
+  "access_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "expires_in_days": 1,
+  "service": "forgensic"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-block">
+                <div class="endpoint-header">
+                    <span class="method method-post">POST</span>
+                    <code>/jobs</code>
+                </div>
+                <div class="endpoint-body">
+                    <p><strong>Upload a document and enqueue analysis.</strong> Returns a <code>job_id</code> immediately.</p>
+                    <h4>Parameters (multipart/form-data)</h4>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">file</span>
+                            <span><span class="param-type">file (required)</span> &mdash; PDF, JPG, PNG, BMP, TIFF, or WebP. Max 25 MB.</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">ocr_enabled</span>
+                            <span><span class="param-type">boolean</span> &mdash; Run Tesseract OCR for spacing analysis. Default: <code>true</code>.</span>
+                        </div>
+                    </div>
+                    <h4>Response</h4>
+                    <pre><code>{ "job_id": "2dec4af2678c4eb1a6f217cceec3db55", "status": "queued" }</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-block">
+                <div class="endpoint-header">
+                    <span class="method method-get">GET</span>
+                    <code>/jobs/{job_id}</code>
+                </div>
+                <div class="endpoint-body">
+                    <p><strong>Poll job progress.</strong> Poll every 2 seconds until <code>status</code> is <code>"complete"</code> or <code>"error"</code>.</p>
+                    <h4>Status Values</h4>
+                    <table>
+                        <thead><tr><th>Status</th><th>Progress</th><th>Meaning</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>queued</code></td><td>0%</td><td>Waiting for a free Celery worker</td></tr>
+                            <tr><td><code>processing</code></td><td>5% &rarr; 85%</td><td>CV pipeline actively running</td></tr>
+                            <tr><td><code>complete</code></td><td>100%</td><td>Results ready &mdash; call <code>/results</code></td></tr>
+                            <tr><td><code>error</code></td><td>&mdash;</td><td>Pipeline error &mdash; see <code>message</code> field</td></tr>
+                        </tbody>
+                    </table>
+                    <pre><code>{ "job_id": "2dec4af2...", "status": "processing", "progress": 0.42 }</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-block">
+                <div class="endpoint-header">
+                    <span class="method method-get">GET</span>
+                    <code>/jobs/{job_id}/results</code>
+                </div>
+                <div class="endpoint-body">
+                    <p><strong>Fetch the complete analysis results.</strong> Only available when <code>status == "complete"</code>.</p>
+                    <pre><code>{
+  "job_id": "2dec4af2678c4eb1a6f217cceec3db55",
+  "status": "complete",
+  "file_name": "discharge_summary.pdf",
+  "pipeline_version": "ps3-cv-1.0.0",
+  "inference_seconds": 1.87,
+  "category_summary": { "C2": 1, "C3": 2 },
+  "findings_summary": {
+    "summary_text": "Page 1: Added content near SIGNATURE appears altered.",
+    "findings": [{ "page": 1, "category_id": "C3", "box": { "x":120,"y":80,"w":200,"h":60 } }]
+  },
+  "pages": [{
+    "page_number": 1,
+    "file_name": "discharge_summary_page_1.jpg",
+    "image_url": "/jobs/{id}/files/discharge_summary_page_1.jpg",
+    "preview_url": "/jobs/{id}/files/preview_discharge_summary_page_1.jpg",
+    "categories": ["C3"],
+    "regions": [{ "x": 120, "y": 80, "w": 200, "h": 60, "category_id": "C3" }]
+  }]
+}</code></pre>
+                </div>
+            </div>
+
+            <h2>Python: End-to-End Example</h2>
+            <pre><code>import time, requests
+
+BASE = "https://dpi-dev.tanuh.ai/forgensic"
+
+token = requests.post(
+    f"{BASE}/api/token",
+    json={"name": "Dev", "email": "dev@tanuh.ai"},
+).json()["access_token"]
+
+headers = {"Authorization": f"Bearer {token}"}
+
+with open("document.pdf", "rb") as f:
+    job_id = requests.post(
+        f"{BASE}/jobs",
+        files={"file": f},
+        data={"ocr_enabled": "true"},
+        headers=headers,
+    ).json()["job_id"]
+
+# Poll until done
+for _ in range(120):
+    s = requests.get(f"{BASE}/jobs/{job_id}", headers=headers).json()
+    if s["status"] in ("complete", "error"):
+        break
+    time.sleep(2)
+
+# Fetch results
+results = requests.get(f"{BASE}/jobs/{job_id}/results", headers=headers).json()
+print(results["category_summary"])
+print(results["findings_summary"]["summary_text"])
+
+# Download annotated preview image
+for page in results["pages"]:
+    if page["preview_url"]:
+        img = requests.get(f"{BASE}{page['preview_url']}", headers=headers)
+        with open(f"preview_page_{page['page_number']}.jpg", "wb") as f:
+            f.write(img.content)</code></pre>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <!-- FORGENSIC: Deployment & Config -->
+        <!-- ═══════════════════════════════════════════════════════════════════════ -->
+        <section id="forgensic-deploy" class="doc-section">
+            <h1>Forgensic &mdash; Deployment &amp; Configuration</h1>
+
+            <h2>Docker Compose (Recommended &mdash; Linux / GCP VM)</h2>
+            <p>The <code>docker-compose.yml</code> in the project root launches Redis, the FastAPI server, and the Celery worker together. On Linux, Celery automatically uses the <code>prefork</code> pool for full multi-process isolation.</p>
+            <pre><code># Clone the repository
+git clone https://github.com/tanuh-bcd/TANUH-DPI.git
+cd TANUH-DPI
+
+# Set secrets
+cat &lt;&lt;EOF &gt; .env
+FORGENSIC_SECRET_KEY=your-secure-random-key
+REDIS_URL=redis://redis:6379/0
+OCR_ENABLED=true
+PIPELINE_PRESET=super_loose
+EOF
+
+# Start all services
+docker-compose up -d --build
+
+# Verify
+docker-compose ps
+docker-compose logs -f forgensic-worker</code></pre>
+
+            <div class="callout callout-success">
+                <strong>GCP VM sizing</strong>
+                Use <code>e2-standard-4</code> (4 vCPU, 16 GB) or larger. Each Celery prefork worker uses one CPU core. The throughput scales linearly: 4 cores = ~4 concurrent pages/second.
+            </div>
+
+            <h2>Windows Bare-Metal (Development)</h2>
+            <p>Windows does not support Celery's prefork pool. Use <code>--pool=solo</code> and launch multiple worker processes manually to simulate concurrency.</p>
+            <pre><code># 1. Start Redis via WSL
+wsl -e bash -c "sudo service redis-server start"
+
+# 2. Environment variables (PowerShell)
+$env:PYTHONPATH        = "C:\path\to\TANUH-DPI"
+$env:REDIS_URL         = "redis://localhost:6379/0"
+$env:DATA_DIR          = "$env:TEMP\forgensic_data"
+$env:OCR_ENABLED       = "true"
+$env:PIPELINE_PRESET   = "super_loose"
+$env:FORGENSIC_SECRET_KEY = "dev-secret-local"
+
+# 3. Start API (Terminal 1)
+uvicorn forgensic.app.main:app --host 0.0.0.0 --port 8004 --reload
+
+# 4. Start Worker (Terminal 2)
+celery -A forgensic.celery_app worker --loglevel=info --pool=solo -Q forgensic -n worker1@%h</code></pre>
+
+            <h2>Environment Variable Reference</h2>
+            <table>
+                <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code>REDIS_URL</code></td><td><code>redis://localhost:6379/0</code></td><td>Redis broker and result backend URI</td></tr>
+                    <tr><td><code>DATA_DIR</code></td><td><code>/tmp/forgensic_data</code></td><td>Shared volume for job files. Both API and worker containers must mount this path.</td></tr>
+                    <tr><td><code>OCR_ENABLED</code></td><td><code>true</code></td><td>Run Tesseract OCR for token-gap spacing analysis on scanned docs</td></tr>
+                    <tr><td><code>PIPELINE_PRESET</code></td><td><code>super_loose</code></td><td>Detection sensitivity: <code>super_loose</code> | <code>npv_focus</code> | <code>full</code></td></tr>
+                    <tr><td><code>FORGENSIC_SECRET_KEY</code></td><td>&mdash;</td><td><strong>Required in production.</strong> JWT HMAC signing secret. Use a random 32+ char string.</td></tr>
+                    <tr><td><code>JOB_TTL_SECONDS</code></td><td><code>3600</code></td><td>How long job state + output files are retained in Redis after completion</td></tr>
+                    <tr><td><code>FINDINGS_MAX_PER_PAGE</code></td><td><code>20</code></td><td>Maximum number of findings included in the human-readable summary per page</td></tr>
+                    <tr><td><code>FINDINGS_MIN_AREA_RATIO</code></td><td><code>0.001</code></td><td>Minimum region area (relative to page area) to include in findings summary</td></tr>
+                </tbody>
+            </table>
+
+            <div class="callout callout-warning">
+                <strong>Shared DATA_DIR is critical</strong>
+                The FastAPI container saves uploaded files to <code>DATA_DIR</code>. The Celery worker reads them from the same path. In Docker, both containers must mount the same volume. In bare-metal deployments, both processes must share the same filesystem path.
+            </div>
+
+            <h2>Privacy &amp; Data Handling</h2>
+            <ul>
+                <li>All processing is local &mdash; no external API calls are made</li>
+                <li>Uploaded files are stored in <code>DATA_DIR</code> during processing only</li>
+                <li>Annotated preview images are cached for the job TTL window, then deleted</li>
+                <li>No document content is written to any database or persistent store</li>
+                <li>Jobs are fully purged from Redis after <code>JOB_TTL_SECONDS</code></li>
+            </ul>
         </section>
 
     </main>

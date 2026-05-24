@@ -7,7 +7,7 @@
         <i class="fas fa-code"></i> API Access
     </button>
     <button class="sub-tab-btn" onclick="openSubTab('ForgeryDetection','fg-sub-docs',this)">
-        <i class="fas fa-book"></i> Docs
+        <i class="fas fa-book-open"></i> User Guide
     </button>
 </div>
 
@@ -474,131 +474,397 @@ if preview_url:
 
 </div><!-- /fg-sub-api -->
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- SUB: Docs (Forgery Detection) -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div id="fg-sub-docs" class="sub-content" style="display:none">
 
 <div class="tab-header">
     <div class="tab-header-text">
-        <h2><i class="fas fa-book" style="color:var(--primary)"></i> Forgery Detection Documentation</h2>
-        <p>Technical overview of the Forgensic document forgery detection system.</p>
+        <h2><i class="fas fa-book-open" style="color:var(--primary)"></i> Forgensic User Guide</h2>
+        <p>Complete developer documentation for the Forgensic document forgery detection system — architecture, pipeline, API, and deployment.</p>
     </div>
 </div>
 
-<div class="api-section-box">
-    <h3 style="margin:0 0 12px; color:var(--primary);">Overview</h3>
-    <p style="font-size:0.9rem; color:#334155; line-height:1.7;">
-        Forgensic is a document forgery detection system that uses <strong>classical computer vision</strong> and forensic analysis techniques to detect tampering, splicing, and manipulation in clinical and administrative documents. Unlike ML-based approaches, Forgensic uses deterministic image processing pipelines for explainable, consistent results with bounding-box overlays highlighting suspicious regions.
+<!-- ── Quick Nav ── -->
+<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:12px; margin-bottom:28px;">
+    <a href="#fg-doc-overview" onclick="document.getElementById('fg-doc-overview').scrollIntoView({behavior:'smooth'}); return false;"
+       style="background:linear-gradient(135deg,#0e6a6f,#14868C); color:#fff; text-decoration:none; border-radius:10px; padding:14px 12px; text-align:center; font-size:0.82rem; font-weight:600; transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        <i class="fas fa-layer-group" style="font-size:1.3rem; display:block; margin-bottom:5px;"></i>Overview
+    </a>
+    <a href="#fg-doc-arch" onclick="document.getElementById('fg-doc-arch').scrollIntoView({behavior:'smooth'}); return false;"
+       style="background:linear-gradient(135deg,#0e6a6f,#14868C); color:#fff; text-decoration:none; border-radius:10px; padding:14px 12px; text-align:center; font-size:0.82rem; font-weight:600; transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        <i class="fas fa-sitemap" style="font-size:1.3rem; display:block; margin-bottom:5px;"></i>Architecture
+    </a>
+    <a href="#fg-doc-pipeline" onclick="document.getElementById('fg-doc-pipeline').scrollIntoView({behavior:'smooth'}); return false;"
+       style="background:linear-gradient(135deg,#0e6a6f,#14868C); color:#fff; text-decoration:none; border-radius:10px; padding:14px 12px; text-align:center; font-size:0.82rem; font-weight:600; transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        <i class="fas fa-project-diagram" style="font-size:1.3rem; display:block; margin-bottom:5px;"></i>CV Pipeline
+    </a>
+    <a href="#fg-doc-categories" onclick="document.getElementById('fg-doc-categories').scrollIntoView({behavior:'smooth'}); return false;"
+       style="background:linear-gradient(135deg,#0e6a6f,#14868C); color:#fff; text-decoration:none; border-radius:10px; padding:14px 12px; text-align:center; font-size:0.82rem; font-weight:600; transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        <i class="fas fa-tags" style="font-size:1.3rem; display:block; margin-bottom:5px;"></i>Categories
+    </a>
+    <a href="#fg-doc-api" onclick="document.getElementById('fg-doc-api').scrollIntoView({behavior:'smooth'}); return false;"
+       style="background:linear-gradient(135deg,#0e6a6f,#14868C); color:#fff; text-decoration:none; border-radius:10px; padding:14px 12px; text-align:center; font-size:0.82rem; font-weight:600; transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        <i class="fas fa-code" style="font-size:1.3rem; display:block; margin-bottom:5px;"></i>API Flow
+    </a>
+    <a href="#fg-doc-deploy" onclick="document.getElementById('fg-doc-deploy').scrollIntoView({behavior:'smooth'}); return false;"
+       style="background:linear-gradient(135deg,#0e6a6f,#14868C); color:#fff; text-decoration:none; border-radius:10px; padding:14px 12px; text-align:center; font-size:0.82rem; font-weight:600; transition:opacity .2s;" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        <i class="fas fa-server" style="font-size:1.3rem; display:block; margin-bottom:5px;"></i>Deployment
+    </a>
+</div>
+
+<!-- ── 1. Overview ── -->
+<div id="fg-doc-overview" class="api-section-box" style="border-left: 4px solid var(--primary);">
+    <h3 style="margin:0 0 12px; color:var(--primary); display:flex; align-items:center; gap:8px;"><i class="fas fa-layer-group"></i> What is Forgensic?</h3>
+    <p style="font-size:0.9rem; color:#334155; line-height:1.75;">
+        <strong>Forgensic</strong> is a <strong>classical computer-vision forensic analysis system</strong> developed at TANUH (IISc) for the <em>AB PMJAY Auto-Adjudication Hackathon</em>.
+        It detects tampering, splicing, copy-paste, and manipulation in clinical and administrative documents — <em>without any machine-learning inference</em>.
+        The entire pipeline is deterministic, explainable, and runs entirely on CPU.
     </p>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:16px;">
+        <div style="background:#f0fdfa; border-radius:8px; padding:14px; text-align:center;">
+            <div style="font-size:1.6rem; color:var(--primary);"><i class="fas fa-bolt"></i></div>
+            <div style="font-weight:600; font-size:0.88rem; color:#0f766e; margin-top:4px;">&lt; 2s / page</div>
+            <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">Processing speed</div>
+        </div>
+        <div style="background:#f0fdfa; border-radius:8px; padding:14px; text-align:center;">
+            <div style="font-size:1.6rem; color:var(--primary);"><i class="fas fa-brain"></i></div>
+            <div style="font-weight:600; font-size:0.88rem; color:#0f766e; margin-top:4px;">No ML/GPU</div>
+            <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">Pure classical CV</div>
+        </div>
+        <div style="background:#f0fdfa; border-radius:8px; padding:14px; text-align:center;">
+            <div style="font-size:1.6rem; color:var(--primary);"><i class="fas fa-shield-alt"></i></div>
+            <div style="font-weight:600; font-size:0.88rem; color:#0f766e; margin-top:4px;">500+ req/min</div>
+            <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">Production throughput</div>
+        </div>
+    </div>
+    <div style="margin-top:16px; background:#fffbeb; border:1px solid #fbbf24; border-radius:8px; padding:12px 16px; font-size:0.86rem; color:#92400e;">
+        <i class="fas fa-info-circle"></i> <strong>No AI inference</strong> — because the Forgensic pipeline uses only classical computer vision (OpenCV, PyMuPDF), the <em>AI Status badge</em> in the header is intentionally hidden on this tab.
+    </div>
 </div>
 
-<div class="api-section-box">
-    <h3 style="margin:0 0 12px; color:var(--primary);">Detection Pipeline</h3>
-    <p style="font-size:0.88rem; color:#334155; margin-bottom:12px;">The analysis runs classical CV checks on each page and outputs categories plus localized regions:</p>
-    <ul style="padding-left:18px; font-size:0.88rem; color:#334155; line-height:1.8;">
-        <li><strong>Copy-paste detection:</strong> duplicate region matching to find moved content</li>
-        <li><strong>Overwrite detection:</strong> edge density and stroke inconsistencies within text lines</li>
-        <li><strong>Added content detection:</strong> stamp and signature heuristics with color + shape cues</li>
-        <li><strong>Erasure detection:</strong> low-noise gaps and unnatural smoothness in text lines</li>
-        <li><strong>Document merge detection:</strong> noise fingerprint shifts across bands</li>
-        <li><strong>Watermark removal detection:</strong> residual frequency and background artifacts</li>
-        <li><strong>Irregular spacing:</strong> spacing anomalies in lines and token gaps</li>
-        <li><strong>AI-generated indicators:</strong> category-level flags when detected</li>
-    </ul>
-</div>
+<!-- ── 2. Architecture ── -->
+<div id="fg-doc-arch" class="api-section-box" style="margin-top:20px; border-left: 4px solid #3b82f6;">
+    <h3 style="margin:0 0 14px; color:#1d4ed8; display:flex; align-items:center; gap:8px;"><i class="fas fa-sitemap"></i> Production Architecture</h3>
+    <p style="font-size:0.88rem; color:#334155; line-height:1.7; margin-bottom:14px;">The production deployment decouples the HTTP API from the CPU-bound pipeline using <strong>Celery + Redis</strong>:</p>
+    <div style="background:#1e293b; border-radius:10px; padding:16px 18px; font-family:monospace; font-size:0.78rem; color:#e2e8f0; line-height:1.9; overflow-x:auto;">
+<pre style="margin:0; color:#e2e8f0;">  Browser / API Client
+         │
+         ▼
+  ┌─────────────────────────┐
+  │  Nginx Reverse Proxy    │  (dpi-dev.tanuh.ai / :443)
+  └────────────┬────────────┘
+               │ /forgensic/*
+               ▼
+  ┌─────────────────────────┐
+  │  FastAPI  (Uvicorn)     │  :8004  — forgensic/app/main.py
+  │  • POST /jobs           │          Validates auth, saves file,
+  │  • GET  /jobs/{id}      │          dispatches Celery task
+  │  • GET  /jobs/{id}/...  │          returns job state from Redis
+  └────────────┬────────────┘
+               │ enqueue
+               ▼
+  ┌─────────────────────────┐
+  │  Redis  :6379           │  Broker + result backend
+  │  • Queue: forgensic     │  Job state JSON (TTL 1 h)
+  └────────────┬────────────┘
+               │ consume
+               ▼
+  ┌─────────────────────────┐
+  │  Celery Workers         │  forgensic/tasks.py
+  │  prefork (Linux/Docker) │  run_pipeline() → OpenCV, PyMuPDF
+  │  • Concurrency = N vCPU │  writes results → Redis
+  └─────────────────────────┘</pre>
+    </div>
 
-<div class="api-section-box">
-    <h3 style="margin:0 0 12px; color:var(--primary);">Finding Categories</h3>
+    <h4 style="margin:18px 0 8px; color:#1d4ed8; font-size:0.9rem;">Key Services</h4>
     <table class="api-endpoint-table">
-        <thead>
-            <tr><th>Category</th><th>Label</th><th>Description</th></tr>
-        </thead>
+        <thead><tr><th>Service</th><th>File</th><th>Role</th></tr></thead>
         <tbody>
-            <tr><td><code>C1</code></td><td>Copy-paste</td><td>Duplicate regions within the same document</td></tr>
-            <tr><td><code>C2</code></td><td>Overwriting</td><td>Edits over existing text or ink</td></tr>
-            <tr><td><code>C3</code></td><td>Added content</td><td>Stamps, signatures, or pasted content</td></tr>
-            <tr><td><code>C4</code></td><td>Erasure</td><td>Removed text or image regions</td></tr>
-            <tr><td><code>C5</code></td><td>Document merge</td><td>Header/body from different sources</td></tr>
-            <tr><td><code>C6</code></td><td>Watermark removal</td><td>Ghost artifacts from watermark edits</td></tr>
-            <tr><td><code>C7</code></td><td>Irregular spacing</td><td>Spacing inconsistencies in lines or tokens</td></tr>
-            <tr><td><code>C8</code></td><td>AI-generated</td><td>Entire document appears AI-generated</td></tr>
-            <tr><td><code>C9</code></td><td>AI-edited</td><td>Partial AI edits detected</td></tr>
-            <tr><td><code>C10</code></td><td>No discrepancy</td><td>No editing or anomalies found</td></tr>
+            <tr><td><code>FastAPI</code></td><td><code>forgensic/app/main.py</code></td><td>REST API, JWT auth, job lifecycle management</td></tr>
+            <tr><td><code>Celery App</code></td><td><code>forgensic/celery_app.py</code></td><td>Celery instance, Redis broker config</td></tr>
+            <tr><td><code>Task</code></td><td><code>forgensic/tasks.py</code></td><td>Runs the CV pipeline, writes results to Redis</td></tr>
+            <tr><td><code>Pipeline</code></td><td><code>forgensic/app/pipeline.py</code></td><td>All OpenCV / PyMuPDF / OCR logic (~3000 lines)</td></tr>
+            <tr><td><code>Config</code></td><td><code>forgensic/app/config.py</code></td><td>Env vars: REDIS_URL, DATA_DIR, OCR_ENABLED, etc.</td></tr>
+            <tr><td><code>Utils</code></td><td><code>forgensic/app/utils.py</code></td><td>Shared serialisers — avoids circular imports</td></tr>
         </tbody>
     </table>
 </div>
 
-<div class="api-section-box">
-    <h3 style="margin:0 0 12px; color:var(--primary);">Technology Stack</h3>
-    <div class="api-badge-row">
-        <span class="api-badge-chip">
-            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="Python" style="width:16px;height:16px;">
-            Python 3.10+
-        </span>
-        <span class="api-badge-chip">
-            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/fastapi/fastapi-original.svg" alt="FastAPI" style="width:16px;height:16px;">
-            FastAPI
-        </span>
-        <span class="api-badge-chip">
-            <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/opencv/opencv-original.svg" alt="OpenCV" style="width:16px;height:16px;">
-            OpenCV
-        </span>
+<!-- ── 3. CV Pipeline ── -->
+<div id="fg-doc-pipeline" class="api-section-box" style="margin-top:20px; border-left: 4px solid #8b5cf6;">
+    <h3 style="margin:0 0 14px; color:#6d28d9; display:flex; align-items:center; gap:8px;"><i class="fas fa-project-diagram"></i> Computer Vision Detection Pipeline</h3>
+    <p style="font-size:0.88rem; color:#334155; line-height:1.7; margin-bottom:16px;">
+        Every uploaded page passes sequentially through the following classical CV checks. The pipeline is configured by the <code>PIPELINE_PRESET</code> environment variable
+        (<code>super_loose</code>, <code>npv_focus</code>, <code>full</code>).
+    </p>
+
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">1</div>
+            <div><strong style="color:#6d28d9;">Image Pre-processing &amp; Page Rendering</strong><br><span style="font-size:0.83rem; color:#64748b;">PDF pages rendered to high-resolution JPG via PyMuPDF (fitz). Single image files are used directly. DPI scaling applied for accuracy.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">2</div>
+            <div><strong style="color:#6d28d9;">Copy-Paste Detection (C1)</strong><br><span style="font-size:0.83rem; color:#64748b;">ORB keypoint matching with FLANN-based KNN. Block-level hashing for duplicate region detection. Covers both pixel-level and compressed re-saves.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">3</div>
+            <div><strong style="color:#6d28d9;">Overwriting Detection (C2)</strong><br><span style="font-size:0.83rem; color:#64748b;">Edge density and stroke-width analysis within text line bounding boxes. Ink inconsistency scoring against surrounding line baseline.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">4</div>
+            <div><strong style="color:#6d28d9;">Added Content Detection (C3)</strong><br><span style="font-size:0.83rem; color:#64748b;">Stamp and signature heuristics using HSV color saturation thresholding, contour shape analysis, and aspect-ratio filtering. Flags rubber-stamp marks and pasted image overlays.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">5</div>
+            <div><strong style="color:#6d28d9;">Erasure Detection (C4)</strong><br><span style="font-size:0.83rem; color:#64748b;">Laplacian noise variance and gradient smoothness analysis in areas adjacent to text lines. Detects white-out, digital erasing, or paint-bucket fills.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">6</div>
+            <div><strong style="color:#6d28d9;">Document Merge Detection (C5)</strong><br><span style="font-size:0.83rem; color:#64748b;">Divides the page into horizontal bands. Computes noise fingerprint (Laplacian variance) per band. A significant jump between header and body bands indicates documents from different sources were merged.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">7</div>
+            <div><strong style="color:#6d28d9;">Watermark Removal Detection (C6)</strong><br><span style="font-size:0.83rem; color:#64748b;">FFT frequency domain analysis for residual watermark ghost patterns. Background uniformity scoring to detect pixel-level artifacts from removal tools.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">8</div>
+            <div><strong style="color:#6d28d9;">Irregular Spacing Detection (C7)</strong><br><span style="font-size:0.83rem; color:#64748b;">Token gap analysis within lines using word-level bounding boxes from the OCR output. Statistical outlier detection on inter-token distances flags inserted or deleted words.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">9</div>
+            <div><strong style="color:#6d28d9;">AI-Generated / AI-Edited Flags (C8, C9)</strong><br><span style="font-size:0.83rem; color:#64748b;">Combines texture uniformity (too smooth), font embedding entropy, and micro-print rendering anomalies to flag documents that appear fully or partially AI-generated.</span></div>
+        </div>
+        <div style="background:#f5f3ff; border-radius:8px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="background:#8b5cf6; color:#fff; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700; font-size:0.85rem;">10</div>
+            <div><strong style="color:#6d28d9;">Annotated Preview Generation</strong><br><span style="font-size:0.83rem; color:#64748b;">Renders detected bounding boxes on each page image using Pillow. Colour-coded by category. Saved as <code>preview_{page}.jpg</code> and served from Redis-tracked file map.</span></div>
+        </div>
     </div>
-    <ul style="padding-left:18px; font-size:0.88rem; color:#334155; line-height:1.8; margin-top:10px;">
-        <li><strong>No ML models required</strong> — pure classical CV pipeline</li>
-        <li><strong>No GPU needed</strong> — runs on CPU only</li>
-        <li><strong>Lightweight</strong> — minimal dependencies, fast startup</li>
-        <li><strong>Async processing</strong> — ThreadPoolExecutor for non-blocking job handling</li>
-        <li><strong>In-memory state</strong> — jobs stored in memory with TTL-based cleanup</li>
-    </ul>
-</div>
 
-<div class="api-section-box">
-    <h3 style="margin:0 0 12px; color:var(--primary);">Supported File Formats</h3>
-    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:10px;">
-        <div style="background:#f0fdfa; padding:10px 14px; border-radius:8px; text-align:center;">
-            <i class="fas fa-file-pdf" style="color:var(--primary); font-size:1.5rem;"></i>
-            <div style="font-size:0.82rem; color:#334155; margin-top:4px;">PDF</div>
-        </div>
-        <div style="background:#f0fdfa; padding:10px 14px; border-radius:8px; text-align:center;">
-            <i class="fas fa-file-image" style="color:var(--primary); font-size:1.5rem;"></i>
-            <div style="font-size:0.82rem; color:#334155; margin-top:4px;">JPG / PNG</div>
-        </div>
-        <div style="background:#f0fdfa; padding:10px 14px; border-radius:8px; text-align:center;">
-            <i class="fas fa-file-image" style="color:var(--primary); font-size:1.5rem;"></i>
-            <div style="font-size:0.82rem; color:#334155; margin-top:4px;">BMP / TIFF</div>
-        </div>
-        <div style="background:#f0fdfa; padding:10px 14px; border-radius:8px; text-align:center;">
-            <i class="fas fa-file-image" style="color:var(--primary); font-size:1.5rem;"></i>
-            <div style="font-size:0.82rem; color:#334155; margin-top:4px;">WebP</div>
-        </div>
+    <div style="margin-top:16px; background:#fef9c3; border:1px solid #facc15; border-radius:8px; padding:12px 16px; font-size:0.85rem; color:#713f12;">
+        <i class="fas fa-lightbulb"></i> <strong>Preset tuning:</strong> Set <code>PIPELINE_PRESET=super_loose</code> in production to maximise sensitivity (flag more suspects). Use <code>npv_focus</code> when targeting only NPV-relevant forgeries. Use <code>full</code> for strictest, lowest false-positive settings.
     </div>
 </div>
 
-<div class="api-section-box">
-    <h3 style="margin:0 0 12px; color:var(--primary);">Privacy &amp; Data Handling</h3>
-    <ul style="padding-left:18px; font-size:0.88rem; color:#334155; line-height:1.8;">
-        <li>All processing happens locally — no external API calls</li>
-        <li>Uploaded files are deleted immediately after processing</li>
-        <li>Preview images are cached in-memory only (cleared on restart)</li>
-        <li>No document content is written to disk or any database</li>
-        <li>Maximum file size: <strong>25 MB</strong></li>
-    </ul>
-</div>
-
-<div class="api-section-box">
-    <h3 style="margin:0 0 12px; color:var(--primary);">Configuration</h3>
+<!-- ── 4. Finding Categories ── -->
+<div id="fg-doc-categories" class="api-section-box" style="margin-top:20px; border-left: 4px solid #f59e0b;">
+    <h3 style="margin:0 0 14px; color:#b45309; display:flex; align-items:center; gap:8px;"><i class="fas fa-tags"></i> Forgery Finding Categories</h3>
+    <p style="font-size:0.88rem; color:#334155; line-height:1.7; margin-bottom:12px;">Every detected region is tagged with one of the following 10 category codes. Multiple categories can be assigned to a single page.</p>
     <table class="api-endpoint-table">
-        <thead>
-            <tr><th>Variable</th><th>Description</th></tr>
-        </thead>
+        <thead><tr><th>Code</th><th>Label</th><th>Detection Method</th><th>Example Scenario</th></tr></thead>
         <tbody>
-            <tr><td><code>DATA_DIR</code></td><td>Temporary directory for processing files</td></tr>
-            <tr><td><code>OCR_ENABLED</code></td><td>Enable OCR for scanned PDFs (default: true)</td></tr>
-            <tr><td><code>PIPELINE_PRESET</code></td><td>Analysis pipeline preset (default: full)</td></tr>
+            <tr>
+                <td><code style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px;">C1</code></td>
+                <td><strong>Copy-Paste</strong></td>
+                <td>ORB keypoint matching, block hash</td>
+                <td>Doctor's signature copied from another document</td>
+            </tr>
+            <tr>
+                <td><code style="background:#fed7aa; color:#c2410c; padding:2px 6px; border-radius:4px;">C2</code></td>
+                <td><strong>Overwriting</strong></td>
+                <td>Edge density, stroke analysis</td>
+                <td>Date or amount overwritten with different ink</td>
+            </tr>
+            <tr>
+                <td><code style="background:#fef9c3; color:#a16207; padding:2px 6px; border-radius:4px;">C3</code></td>
+                <td><strong>Added Content</strong></td>
+                <td>HSV saturation, contour shape</td>
+                <td>Rubber stamp or signature pasted onto document</td>
+            </tr>
+            <tr>
+                <td><code style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:4px;">C4</code></td>
+                <td><strong>Erasure</strong></td>
+                <td>Laplacian noise variance</td>
+                <td>Patient name white-out and overtyped</td>
+            </tr>
+            <tr>
+                <td><code style="background:#dbeafe; color:#1d4ed8; padding:2px 6px; border-radius:4px;">C5</code></td>
+                <td><strong>Document Merge</strong></td>
+                <td>Noise fingerprint band analysis</td>
+                <td>Header from Hospital A, body from Hospital B</td>
+            </tr>
+            <tr>
+                <td><code style="background:#f3e8ff; color:#6d28d9; padding:2px 6px; border-radius:4px;">C6</code></td>
+                <td><strong>Watermark Removal</strong></td>
+                <td>FFT frequency residuals</td>
+                <td>"CONFIDENTIAL" watermark digitally removed</td>
+            </tr>
+            <tr>
+                <td><code style="background:#f0fdfa; color:#0f766e; padding:2px 6px; border-radius:4px;">C7</code></td>
+                <td><strong>Irregular Spacing</strong></td>
+                <td>Inter-token gap statistics</td>
+                <td>Extra space inserted to change a cost figure</td>
+            </tr>
+            <tr>
+                <td><code style="background:#fce7f3; color:#9d174d; padding:2px 6px; border-radius:4px;">C8</code></td>
+                <td><strong>AI-Generated</strong></td>
+                <td>Texture uniformity + font entropy</td>
+                <td>Entire document generated by AI tool</td>
+            </tr>
+            <tr>
+                <td><code style="background:#fce7f3; color:#9d174d; padding:2px 6px; border-radius:4px;">C9</code></td>
+                <td><strong>AI-Edited</strong></td>
+                <td>Partial texture anomaly</td>
+                <td>Individual paragraphs re-written with AI</td>
+            </tr>
+            <tr>
+                <td><code style="background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:4px;">C10</code></td>
+                <td><strong>No Discrepancy</strong></td>
+                <td>Absence of all above signals</td>
+                <td>Clean, unmodified document</td>
+            </tr>
         </tbody>
     </table>
 </div>
 
-</div><!-- /fg-sub-docs -->
+<!-- ── 5. API Job Lifecycle ── -->
+<div id="fg-doc-api" class="api-section-box" style="margin-top:20px; border-left: 4px solid #14868C;">
+    <h3 style="margin:0 0 14px; color:var(--primary); display:flex; align-items:center; gap:8px;"><i class="fas fa-code"></i> API Job Lifecycle</h3>
+    <p style="font-size:0.88rem; color:#334155; margin-bottom:14px;">All API calls require a <strong>JWT Bearer token</strong> obtained from <code>POST /forgensic/api/token</code>. The token is valid for <strong>24 hours</strong>.</p>
+
+    <!-- Flow diagram -->
+    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:20px;">
+        <div style="background:#0e6a6f; color:#fff; border-radius:8px; padding:10px 14px; font-size:0.8rem; font-weight:600; text-align:center;"><i class="fas fa-upload" style="display:block; margin-bottom:3px;"></i>1. POST /jobs<br><span style="font-weight:400; opacity:.85;">Upload file</span></div>
+        <div style="color:#94a3b8; font-size:1.3rem;">→</div>
+        <div style="background:#1d4ed8; color:#fff; border-radius:8px; padding:10px 14px; font-size:0.8rem; font-weight:600; text-align:center;"><i class="fas fa-clock" style="display:block; margin-bottom:3px;"></i>2. GET /jobs/{id}<br><span style="font-weight:400; opacity:.85;">Poll status</span></div>
+        <div style="color:#94a3b8; font-size:1.3rem;">→</div>
+        <div style="background:#6d28d9; color:#fff; border-radius:8px; padding:10px 14px; font-size:0.8rem; font-weight:600; text-align:center;"><i class="fas fa-check-circle" style="display:block; margin-bottom:3px;"></i>3. GET /results<br><span style="font-weight:400; opacity:.85;">Fetch findings</span></div>
+        <div style="color:#94a3b8; font-size:1.3rem;">→</div>
+        <div style="background:#0f766e; color:#fff; border-radius:8px; padding:10px 14px; font-size:0.8rem; font-weight:600; text-align:center;"><i class="fas fa-image" style="display:block; margin-bottom:3px;"></i>4. GET /files/{name}<br><span style="font-weight:400; opacity:.85;">Download preview</span></div>
+    </div>
+
+    <h4 style="color:var(--primary); font-size:0.9rem; margin:12px 0 8px;">Job Status Values</h4>
+    <table class="api-endpoint-table">
+        <thead><tr><th>Status</th><th>Progress</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>queued</code></td><td>0%</td><td>Job accepted, waiting for a free Celery worker</td></tr>
+            <tr><td><code>processing</code></td><td>5% → 85%</td><td>Worker is actively running the CV pipeline</td></tr>
+            <tr><td><code>complete</code></td><td>100%</td><td>All results ready. Call <code>/results</code> and <code>/files/*</code></td></tr>
+            <tr><td><code>error</code></td><td>—</td><td>Pipeline failed. Check <code>message</code> field for details</td></tr>
+        </tbody>
+    </table>
+
+    <h4 style="color:var(--primary); font-size:0.9rem; margin:16px 0 8px;">Results Response Schema</h4>
+    <div class="api-code-block">
+        <pre style="margin:0; white-space:pre; font-size:0.78rem;">{
+  "job_id": "2dec4af2678c4eb1a6f217cceec3db55",
+  "status": "complete",
+  "file_name": "discharge_summary.pdf",
+  "pipeline_version": "ps3-cv-1.0.0",
+  "inference_seconds": 1.87,
+  "category_summary": { "C2": 1, "C3": 2 },
+  "findings_summary": {
+    "summary_text": "Page 1: Added content near SIGNATURE appears altered.",
+    "findings": [{
+      "page": 1, "category_id": "C3",
+      "category_label": "Added content",
+      "box": { "x": 120, "y": 80, "w": 200, "h": 60 }
+    }]
+  },
+  "pages": [{
+    "page_number": 1,
+    "file_name": "discharge_summary_page_1.jpg",
+    "image_url": "/jobs/{id}/files/discharge_summary_page_1.jpg",
+    "preview_url": "/jobs/{id}/files/preview_discharge_summary_page_1.jpg",
+    "image_width": 1654, "image_height": 2339,
+    "categories": ["C3"],
+    "regions": [{ "x": 120, "y": 80, "w": 200, "h": 60, "category_id": "C3" }]
+  }]
+}</pre>
+        <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+    </div>
+</div>
+
+<!-- ── 6. Deployment ── -->
+<div id="fg-doc-deploy" class="api-section-box" style="margin-top:20px; border-left: 4px solid #10b981;">
+    <h3 style="margin:0 0 14px; color:#065f46; display:flex; align-items:center; gap:8px;"><i class="fas fa-server"></i> Deployment Guide</h3>
+
+    <h4 style="color:#065f46; font-size:0.9rem; margin:0 0 8px;"><i class="fab fa-docker"></i> Docker (Recommended — Linux/GCP VM)</h4>
+    <div class="api-code-block">
+        <pre style="margin:0; font-size:0.8rem; white-space:pre-wrap;"># Clone and configure
+git clone https://github.com/tanuh-bcd/TANUH-DPI.git && cd TANUH-DPI
+cat &lt;&lt;EOF &gt; .env
+FORGENSIC_SECRET_KEY=your-secure-random-key
+REDIS_URL=redis://redis:6379/0
+OCR_ENABLED=true
+PIPELINE_PRESET=super_loose
+EOF
+
+# Build and launch all services
+docker-compose up -d --build
+
+# Verify all containers are healthy
+docker-compose ps
+docker-compose logs -f forgensic-worker</pre>
+        <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+    </div>
+
+    <h4 style="color:#065f46; font-size:0.9rem; margin:16px 0 8px;"><i class="fab fa-windows"></i> Bare-Metal (Windows — Development)</h4>
+    <div class="api-code-block">
+        <pre style="margin:0; font-size:0.8rem; white-space:pre-wrap;"># 1. Start Redis (via WSL)
+wsl -e bash -c "sudo service redis-server start"
+
+# 2. Set environment variables (PowerShell)
+$env:PYTHONPATH        = "C:\path\to\TANUH-DPI"
+$env:REDIS_URL         = "redis://localhost:6379/0"
+$env:DATA_DIR          = "$env:TEMP\forgensic_data"
+$env:OCR_ENABLED       = "true"
+$env:PIPELINE_PRESET   = "super_loose"
+$env:FORGENSIC_SECRET_KEY = "dev-secret-local"
+
+# 3. Start the API
+uvicorn forgensic.app.main:app --host 0.0.0.0 --port 8004 --reload
+
+# 4. Start the Celery Worker (new terminal, same env vars)
+celery -A forgensic.celery_app worker --loglevel=info --pool=solo -Q forgensic -n worker1@%h</pre>
+        <button class="btn-copy" onclick="copyCodeBlock(this)">Copy</button>
+    </div>
+
+    <h4 style="color:#065f46; font-size:0.9rem; margin:16px 0 8px;">Environment Variable Reference</h4>
+    <table class="api-endpoint-table">
+        <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+            <tr><td><code>REDIS_URL</code></td><td><code>redis://localhost:6379/0</code></td><td>Redis broker and result backend URI</td></tr>
+            <tr><td><code>DATA_DIR</code></td><td><code>/tmp/forgensic_data</code></td><td>Shared volume for job files (API + workers must share)</td></tr>
+            <tr><td><code>OCR_ENABLED</code></td><td><code>true</code></td><td>Run Tesseract OCR for spacing analysis on scanned docs</td></tr>
+            <tr><td><code>PIPELINE_PRESET</code></td><td><code>super_loose</code></td><td><code>super_loose</code> | <code>npv_focus</code> | <code>full</code></td></tr>
+            <tr><td><code>FORGENSIC_SECRET_KEY</code></td><td>—</td><td>JWT signing secret — <strong>must be set in production</strong></td></tr>
+            <tr><td><code>JOB_TTL_SECONDS</code></td><td><code>3600</code></td><td>How long job state + files are retained in Redis</td></tr>
+        </tbody>
+    </table>
+
+    <div style="margin-top:14px; background:#ecfdf5; border:1px solid #10b981; border-radius:8px; padding:12px 16px; font-size:0.85rem; color:#065f46;">
+        <i class="fas fa-check-circle"></i> <strong>Scaling tip:</strong> On Linux/Docker, Celery uses the <code>prefork</code> pool by default.
+        Set <code>--concurrency</code> to the number of CPU cores for maximum throughput. Each worker process is isolated, avoiding all OpenCV thread-safety issues.
+    </div>
+</div>
+
+<!-- ── 7. Tech Stack ── -->
+<div class="api-section-box" style="margin-top:20px;">
+    <h3 style="margin:0 0 14px; color:var(--primary);"><i class="fas fa-cubes"></i> Technology Stack &amp; Supported Formats</h3>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div>
+            <h4 style="color:var(--text-dark); font-size:0.88rem; margin:0 0 10px;">Dependencies</h4>
+            <div class="api-badge-row" style="flex-wrap:wrap;">
+                <span class="api-badge-chip"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/python/python-original.svg" alt="Python" style="width:15px;height:15px;"> Python 3.10+</span>
+                <span class="api-badge-chip"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/fastapi/fastapi-original.svg" alt="FastAPI" style="width:15px;height:15px;"> FastAPI</span>
+                <span class="api-badge-chip"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/opencv/opencv-original.svg" alt="OpenCV" style="width:15px;height:15px;"> OpenCV 4.x</span>
+                <span class="api-badge-chip"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/redis/redis-original.svg" alt="Redis" style="width:15px;height:15px;"> Redis</span>
+                <span class="api-badge-chip"><i class="fas fa-tasks" style="color:#37b24d;"></i> Celery 5</span>
+                <span class="api-badge-chip"><i class="fas fa-file-pdf" style="color:#e53e3e;"></i> PyMuPDF</span>
+                <span class="api-badge-chip"><i class="fas fa-image" style="color:#8b5cf6;"></i> Pillow</span>
+                <span class="api-badge-chip"><i class="fas fa-font" style="color:#0ea5e9;"></i> Tesseract (optional)</span>
+            </div>
+        </div>
+        <div>
+            <h4 style="color:var(--text-dark); font-size:0.88rem; margin:0 0 10px;">Supported File Formats</h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                <div style="background:#f0fdfa; padding:8px 12px; border-radius:6px; font-size:0.82rem; text-align:center; color:#0f766e;"><i class="fas fa-file-pdf"></i> PDF (multi-page)</div>
+                <div style="background:#f0fdfa; padding:8px 12px; border-radius:6px; font-size:0.82rem; text-align:center; color:#0f766e;"><i class="fas fa-file-image"></i> JPG / JPEG</div>
+                <div style="background:#f0fdfa; padding:8px 12px; border-radius:6px; font-size:0.82rem; text-align:center; color:#0f766e;"><i class="fas fa-file-image"></i> PNG</div>
+                <div style="background:#f0fdfa; padding:8px 12px; border-radius:6px; font-size:0.82rem; text-align:center; color:#0f766e;"><i class="fas fa-file-image"></i> BMP / TIFF</div>
+                <div style="background:#f0fdfa; padding:8px 12px; border-radius:6px; font-size:0.82rem; text-align:center; color:#0f766e;"><i class="fas fa-file-image"></i> WebP</div>
+                <div style="background:#f0fdfa; padding:8px 12px; border-radius:6px; font-size:0.82rem; text-align:center; color:#0f766e;"><i class="fas fa-weight"></i> Max 25 MB</div>
+            </div>
+        </div>
+    </div>
+</div>
