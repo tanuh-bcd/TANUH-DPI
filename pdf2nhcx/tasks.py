@@ -4,8 +4,8 @@ pdf2nhcx/tasks.py — Dedicated Celery background task for NHCX (Insurance) proc
 Flow:
   1. OCR the PDF (Docling waterfall)
   2. Classify / select NHCX resources
-  3. Run NHCX insurance pipeline (generates bundle, uploads to GCS)
-  4. Store GCS URI in Redis under key  result:<task_id>  with 24 h TTL
+  3. Run NHCX insurance pipeline (generates bundle)
+  4. Store results in Redis under key  result:<task_id>  with 24 h TTL
   5. Fire-and-forget log to session_logger service
 """
 
@@ -123,28 +123,20 @@ def process_nhcx_task(self, pdf_path: str, model: str = "gemma4"):
         update("LLM Extraction", 65)
         from pdf2nhcx.utils.llm_requirements import run_nhcx_insurance_pipeline
 
-        # Build the GCS URI for the source PDF so Binary.url is resolvable
-        gcs_bucket = os.getenv("GCS_BUCKET_NAME", "nhcx-fhir-bucket")
-        pdf_gcs_uri = f"gs://{gcs_bucket}/pdf_uploads/nhcx/{task_filename}"
-
         bundle = run_nhcx_insurance_pipeline(
             distilled_text, doc_type, selected_other_resources,
-            pdf_base64=pdf_base64, pdf_gcs_uri=pdf_gcs_uri, idx=0, model=model
+            pdf_base64=pdf_base64, idx=0, model=model
         )
-
 
         # ── Step 4: Store result in Redis ─────────────────────────────────────
         update("Storing results", 95)
         processing_time = round(time.perf_counter() - start_time, 2)
-        filename_json = f"FHIR_BUNDLE_{doc_type}_Patient_0.json"
-        gcs_uri = f"json_output/nhcx/{filename_json}"
 
         result_payload = {
             "status": "completed",
             "task_id": task_id,
             "doc_type": doc_type,
             "bundle": bundle,
-            "gcs_uri": gcs_uri,
             "model_used": model,
         }
         r = _get_redis()
@@ -152,7 +144,6 @@ def process_nhcx_task(self, pdf_path: str, model: str = "gemma4"):
 
         log_payload.update({
             "pdf_location": f"pdf_uploads/nhcx/{task_filename}",
-            "json_location": gcs_uri,
         })
 
         update("Completed", 100)

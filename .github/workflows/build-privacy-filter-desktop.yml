@@ -1,0 +1,311 @@
+name: Build Privacy Filter Desktop App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: PrivacyFilterApp-ubuntu-latest
+            zip_name: PrivacyFilterApp-ubuntu-latest.zip
+          - os: ubuntu-24.04-arm
+            artifact_name: PrivacyFilterApp-ubuntu-24.04-arm
+            zip_name: PrivacyFilterApp-ubuntu-24.04-arm.zip
+          - os: windows-latest
+            artifact_name: PrivacyFilterApp-windows-latest
+            zip_name: PrivacyFilterApp-windows-latest.zip
+          - os: macos-latest
+            artifact_name: PrivacyFilterApp-macos-latest
+            zip_name: PrivacyFilterApp-macos-latest.zip
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr libtesseract-dev poppler-utils \
+            libglib2.0-0 libsm6 libxext6 libxrender1
+
+      - name: Install System Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install tesseract poppler
+
+      - name: Install System Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install tesseract -y
+          echo "C:\Program Files\Tesseract-OCR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            torch==2.5.1 \
+            transformers==5.6.2 \
+            accelerate==1.10.0 \
+            safetensors==0.5.2 \
+            huggingface-hub==1.12.0 \
+            tokenizers==0.22.2
+          pip install \
+            fastapi==0.115.4 \
+            uvicorn[standard]==0.32.0 \
+            python-multipart==0.0.12 \
+            jinja2==3.1.4 \
+            pydantic==2.9.2 \
+            pypdf==5.1.0 \
+            pdfplumber==0.11.4 \
+            pdf2image==1.17.0 \
+            python-docx==1.1.2 \
+            Pillow==11.0.0 \
+            pytesseract==0.3.13 \
+            pydicom==3.0.1 \
+            "numpy>=1.26,<3" \
+            pymupdf==1.24.13 \
+            python-dotenv==1.0.1 \
+            "python-jose[cryptography]==3.3.0" \
+            email-validator==2.1.1 \
+            httpx==0.27.0
+          pip install customtkinter pyinstaller
+
+      - name: Download Models (cache for bundling)
+        run: |
+          python -c "
+          from transformers import pipeline
+          print('Downloading openai/privacy-filter...')
+          pipeline('token-classification', model='openai/privacy-filter', aggregation_strategy='simple', device=-1)
+          print('Downloading dslim/bert-base-NER...')
+          pipeline('token-classification', model='dslim/bert-base-NER', aggregation_strategy='simple', device=-1)
+          print('Models downloaded successfully.')
+          "
+
+      - name: Create GUI launcher
+        shell: bash
+        run: |
+          cat > privacy_filter_gui.py << 'PYEOF'
+          """Privacy Filter Desktop App — offline PII detection & redaction."""
+          import os, sys, json, threading, tempfile, time, uuid, webbrowser
+          from pathlib import Path
+
+          os.environ["STORAGE_BACKEND"] = "local"
+          os.environ["KEYCLOAK_AUTH_ENABLED"] = "false"
+          os.environ["SECRET_KEY"] = "local-desktop-key"
+          os.environ["DEMO_TOKEN_EXPIRY_DAYS"] = "365"
+
+          if getattr(sys, "frozen", False):
+              base = Path(sys._MEIPASS)
+              os.environ.setdefault("HF_HOME", str(base / "models"))
+              os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(base / "models"))
+              os.environ.setdefault("TRANSFORMERS_CACHE", str(base / "models"))
+          else:
+              base = Path(__file__).parent
+
+          data_dir = Path(tempfile.gettempdir()) / "privacy_filter_data"
+          data_dir.mkdir(parents=True, exist_ok=True)
+          (data_dir / "uploads").mkdir(exist_ok=True)
+          (data_dir / "redacted").mkdir(exist_ok=True)
+          os.environ["LOCAL_DATA_DIR"] = str(data_dir)
+
+          import customtkinter as ctk
+
+          PORT = 8003
+
+          class PrivacyFilterApp(ctk.CTk):
+              def __init__(self):
+                  super().__init__()
+                  self.title("TANUH Privacy Filter")
+                  self.geometry("520x380")
+                  self.resizable(False, False)
+                  ctk.set_appearance_mode("light")
+                  ctk.set_default_color_theme("blue")
+
+                  self.server_thread = None
+                  self.server_running = False
+
+                  main = ctk.CTkFrame(self, fg_color="transparent")
+                  main.pack(fill="both", expand=True, padx=30, pady=20)
+
+                  ctk.CTkLabel(main, text="TANUH Privacy Filter",
+                               font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(10,2))
+                  ctk.CTkLabel(main, text="PII Detection & Redaction — Offline Mode",
+                               font=ctk.CTkFont(size=13), text_color="gray").pack(pady=(0,15))
+
+                  self.status = ctk.CTkLabel(main, text="Ready to start",
+                                             font=ctk.CTkFont(size=14))
+                  self.status.pack(pady=5)
+
+                  self.progress = ctk.CTkProgressBar(main, width=350)
+                  self.progress.pack(pady=10)
+                  self.progress.set(0)
+
+                  btn_frame = ctk.CTkFrame(main, fg_color="transparent")
+                  btn_frame.pack(pady=15)
+
+                  self.start_btn = ctk.CTkButton(btn_frame, text="Start Server",
+                                                  command=self.start_server, width=150,
+                                                  fg_color="#14868C", hover_color="#0E6C71")
+                  self.start_btn.pack(side="left", padx=8)
+
+                  self.open_btn = ctk.CTkButton(btn_frame, text="Open Browser",
+                                                 command=self.open_browser, width=150,
+                                                 state="disabled",
+                                                 fg_color="#14868C", hover_color="#0E6C71")
+                  self.open_btn.pack(side="left", padx=8)
+
+                  ctk.CTkLabel(main, text=f"Server runs at http://localhost:{PORT}",
+                               font=ctk.CTkFont(size=11), text_color="gray").pack(pady=(10,0))
+                  ctk.CTkLabel(main, text="TANUH AI-CoE, IISc Bangalore",
+                               font=ctk.CTkFont(size=10), text_color="gray").pack(pady=(2,0))
+
+                  self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+              def start_server(self):
+                  self.start_btn.configure(state="disabled")
+                  self.status.configure(text="Loading models...")
+                  self.progress.set(0.2)
+                  self.server_thread = threading.Thread(target=self._run_server, daemon=True)
+                  self.server_thread.start()
+                  self.after(500, self._poll_health)
+
+              def _run_server(self):
+                  import uvicorn
+                  sys.path.insert(0, str(base))
+                  from privacy_filter.app.main import app as fastapi_app
+                  self.server_running = True
+                  uvicorn.run(fastapi_app, host="127.0.0.1", port=PORT, log_level="warning")
+
+              def _poll_health(self):
+                  import urllib.request
+                  try:
+                      r = urllib.request.urlopen(f"http://127.0.0.1:{PORT}/api/health", timeout=2)
+                      data = json.loads(r.read())
+                      if data.get("model_loaded"):
+                          self.status.configure(text="Server running — model loaded")
+                          self.progress.set(1.0)
+                          self.open_btn.configure(state="normal")
+                          return
+                  except Exception:
+                      pass
+                  p = self.progress.get()
+                  self.progress.set(min(p + 0.05, 0.95))
+                  self.status.configure(text="Loading models...")
+                  self.after(2000, self._poll_health)
+
+              def open_browser(self):
+                  webbrowser.open(f"http://localhost:{PORT}")
+
+              def on_close(self):
+                  self.destroy()
+                  os._exit(0)
+
+          if __name__ == "__main__":
+              app = PrivacyFilterApp()
+              app.mainloop()
+          PYEOF
+
+      - name: Create PyInstaller spec
+        shell: bash
+        run: |
+          python -c "
+          import transformers, torch, safetensors, tokenizers, huggingface_hub
+          import os
+          hf_cache = os.environ.get('HF_HOME', os.path.expanduser('~/.cache/huggingface'))
+          print(f'HF_HOME={hf_cache}')
+          print(f'transformers={os.path.dirname(transformers.__file__)}')
+          print(f'torch={os.path.dirname(torch.__file__)}')
+          " > _paths.txt
+          cat _paths.txt
+
+          HF_HOME=$(python -c "import os; print(os.environ.get('HF_HOME', os.path.expanduser('~/.cache/huggingface')))")
+
+          cat > privacy_filter_gui.spec << SPECEOF
+          # -*- mode: python ; coding: utf-8 -*-
+          import os, sys
+          block_cipher = None
+
+          hf_home = os.environ.get('HF_HOME', os.path.expanduser('~/.cache/huggingface'))
+          models_dir = os.path.join(hf_home, 'hub')
+
+          a = Analysis(
+              ['privacy_filter_gui.py'],
+              pathex=['.'],
+              binaries=[],
+              datas=[
+                  ('privacy_filter', 'privacy_filter'),
+                  (models_dir, 'models/hub'),
+              ],
+              hiddenimports=[
+                  'privacy_filter', 'privacy_filter.app', 'privacy_filter.app.main',
+                  'privacy_filter.app.model', 'privacy_filter.app.ner_model',
+                  'privacy_filter.app.redactor', 'privacy_filter.app.rule_detectors',
+                  'privacy_filter.app.schemas', 'privacy_filter.app.storage',
+                  'privacy_filter.app.stats', 'privacy_filter.app.auth',
+                  'privacy_filter.app.extractors',
+                  'privacy_filter.app.extractors.txt',
+                  'privacy_filter.app.extractors.pdf',
+                  'privacy_filter.app.extractors.docx',
+                  'privacy_filter.app.extractors.image',
+                  'privacy_filter.app.extractors.dicom',
+                  'transformers', 'torch', 'safetensors', 'tokenizers',
+                  'accelerate', 'huggingface_hub',
+                  'fastapi', 'uvicorn', 'pydantic', 'starlette',
+                  'pypdf', 'pdfplumber', 'docx', 'fitz',
+                  'pytesseract', 'pydicom', 'PIL',
+                  'jose', 'dotenv', 'httpx',
+                  'customtkinter',
+              ],
+              hookspath=[],
+              runtime_hooks=[],
+              excludes=['matplotlib', 'scipy', 'pandas', 'notebook', 'IPython'],
+              cipher=block_cipher,
+              noarchive=False,
+          )
+
+          pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+          exe = EXE(
+              pyz, a.scripts, a.binaries, a.datas,
+              name='PrivacyFilterApp',
+              debug=False, strip=False, upx=True,
+              console=False,
+              onefile=True,
+          )
+          SPECEOF
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller privacy_filter_gui.spec
+
+      - name: Zip Artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          zip -9 ${{ matrix.zip_name }} PrivacyFilterApp
+          ls -lh ${{ matrix.zip_name }}
+
+      - name: Zip Artifact (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd dist
+          Compress-Archive -Path PrivacyFilterApp.exe -DestinationPath ${{ matrix.zip_name }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.zip_name }}

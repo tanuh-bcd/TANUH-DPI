@@ -126,7 +126,7 @@ class DemoTokenRequest(BaseModel):
 async def create_demo_token(body: DemoTokenRequest):
     """Issue a signed demo JWT for the given name + email.
 
-    The token is valid for DEMO_TOKEN_EXPIRY_DAYS days (default: 7).
+    The token is valid for DEMO_TOKEN_EXPIRY_DAYS days (default: 1).
     Pass it as ``Authorization: Bearer <token>`` on protected endpoints.
     """
     secret = os.getenv("SECRET_KEY", "")
@@ -136,7 +136,7 @@ async def create_demo_token(body: DemoTokenRequest):
             detail="Demo tokens are not available: SECRET_KEY is not configured.",
         )
 
-    expiry_days = int(os.getenv("DEMO_TOKEN_EXPIRY_DAYS", "7"))
+    expiry_days = int(os.getenv("DEMO_TOKEN_EXPIRY_DAYS", "1"))
     now = int(time.time())
     payload = {
         "sub": body.email,

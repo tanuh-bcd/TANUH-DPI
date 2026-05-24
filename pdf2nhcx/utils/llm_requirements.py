@@ -1057,7 +1057,6 @@ def run_nhcx_insurance_pipeline(
     selected_other_resources: List[str],
     output_dir=None,
     pdf_base64=None,
-    pdf_gcs_uri: str = None,
     idx=None,
     model: str = _DEFAULT_MODEL,
 ):
@@ -1112,18 +1111,9 @@ def run_nhcx_insurance_pipeline(
     bundle = assemble_nhcx_collection_bundle(bundle, clinical_artifact)
     bundle = document_reference_node(bundle, pdf_base64=pdf_base64)
 
-    # Strip Binary.data before GCS upload — PDF is stored separately on GCS.
-    # Binary.url is set to pdf_gcs_uri when available so the resource stays resolvable.
     from pdf2nhcx.utils.nhcx_assembler import strip_binary_data
-    bundle = strip_binary_data(bundle, gcs_pdf_uri=pdf_gcs_uri)
+    bundle = strip_binary_data(bundle)
 
-    # Upload to GCS instead of local file save
-    from pdf2nhcx.utils.gcs_storage import upload_json_to_gcs
-    filename = f"FHIR_BUNDLE_{clinical_artifact}_Patient_{idx}.json"
-    gcs_uri = upload_json_to_gcs(bundle, "json_output/nhcx", filename)
-
-    print(f"\n SUCCESS! FHIR Bundle generated (GCS: {gcs_uri})")
-    print(f" Resources processed: {used_resources}")
-    print(f" Bundle entries: {len(bundle.get('entry', []))}")
+    print(f"FHIR Bundle generated — resources: {used_resources}, entries: {len(bundle.get('entry', []))}")
 
     return bundle

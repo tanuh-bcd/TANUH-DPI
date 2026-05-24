@@ -418,14 +418,9 @@ async def convert_pdf_to_nhcx(
     session_id = str(uuid.uuid4())
     client_ip = request.client.host if request else None
 
-    # ── Read bytes and upload directly to GCS (no local file written) ──────
     file_bytes = await file.read()
-    from pdf2nhcx.utils.gcs_storage import upload_pdf_from_bytes
-    gcs_uri = upload_pdf_from_bytes(file_bytes, filename, "pdf_uploads/nhcx")
-    if gcs_uri:
-        logger.info(f"PDF uploaded to GCS: {gcs_uri}")
 
-    # ── Temp file for OCR engine (needs a path; auto-deleted after) ─────────
+    # Temp file for OCR engine (needs a path; auto-deleted after)
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp.write(file_bytes)
@@ -436,7 +431,6 @@ async def convert_pdf_to_nhcx(
         "ip_address": client_ip or "unknown",
         "state": state,
         "city": city,
-        "pdf_location": gcs_uri,
     }
     try:
         validate_pdf_upload(tmp_path)
@@ -482,18 +476,10 @@ async def convert_pdf_to_nhcx_url(body: LocalFileRequest, background_tasks: Back
     # ── Validate file size + page count ─────────────────────────────────
     validate_pdf_upload(file_path)
 
-    # ── Upload PDF to GCS ──────────────────────────────────────────────────
-    from pdf2nhcx.utils.gcs_storage import upload_pdf_to_gcs
-    gcs_uri = upload_pdf_to_gcs(file_path, "pdf_uploads/nhcx")
-    if gcs_uri:
-        logger.info(f"PDF uploaded to GCS: {gcs_uri}")
-    # ───────────────────────────────────────────────────────────────────────
-
     filename = os.path.basename(file_path)
     log_payload = {
         "service": "pdf2nhcx",
         "ip_address": "unknown",
-        "pdf_location": gcs_uri,
     }
     try:
         start_time = time.perf_counter()
@@ -541,12 +527,7 @@ async def submit_nhcx(
     filename = file.filename.replace(" ", "_")
     logger.info(f"[submit] Received PDF upload: {filename}")
 
-    # Read bytes and upload directly to GCS
     file_bytes = await file.read()
-    from pdf2nhcx.utils.gcs_storage import upload_pdf_from_bytes
-    gcs_uri = upload_pdf_from_bytes(file_bytes, filename, "pdf_uploads/nhcx")
-    if gcs_uri:
-        logger.info(f"[submit] PDF uploaded to GCS: {gcs_uri}")
 
     # Write PDF to shared volume so the Celery worker (separate container) can read it.
     # /tmp is local to this container; /app/pdf_uploads is mounted in both containers.
@@ -573,7 +554,6 @@ async def submit_nhcx(
         "status":          "queued",
         "poll_url":        f"/pdf2nhcx/task-status/{task.id}",
         "result_url":      f"/pdf2nhcx/task-result/{task.id}",
-        "gcs_uri":         gcs_uri,
         "model_used":      model,
         "ocr_engine_used": ocr_engine,
         "message":         "Processing started. Poll poll_url every 6s for updates.",

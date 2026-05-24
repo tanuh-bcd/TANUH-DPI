@@ -4,8 +4,8 @@ pdf2abdm/tasks.py — Dedicated Celery background task for ABDM (Clinical) proce
 Flow:
   1. OCR the PDF (Docling waterfall)
   2. Classify document type
-  3. Run ABDM pipeline (generates FHIR bundles, uploads each to GCS)
-  4. Store GCS URIs in Redis under key  result:<task_id>  with 24 h TTL
+  3. Run ABDM pipeline (generates FHIR bundles)
+  4. Store results in Redis under key  result:<task_id>  with 24 h TTL
   5. Fire-and-forget log to session_logger service
 """
 
@@ -111,9 +111,7 @@ def process_abdm_task(self, pdf_path: str, model: str = "gemma4"):
 
         # ── Step 3: Classify resource type & Extract ──────────────────────────
         from utils.llm_requirements import run_abdm_pipeline
-        from utils.gcs_storage import upload_json_to_gcs
 
-        bundle_gcs_uris = []
         bundles = []
         doc_types = []
 
@@ -132,12 +130,6 @@ def process_abdm_task(self, pdf_path: str, model: str = "gemma4"):
             bundles.append(bundle)
             doc_types.append(doc_type)
 
-            # GCS upload is already done inside run_abdm_pipeline;
-            # build the expected URI so we can expose it.
-            filename_json = f"FHIR_BUNDLE_{doc_type}_Patient_{i}.json"
-            gcs_uri = f"json_output/abdm/{filename_json}"
-            bundle_gcs_uris.append(gcs_uri)
-
 
         # ── Step 3: Store result in Redis ────────────────────────────────────
         update("Storing results", 95)
@@ -148,7 +140,6 @@ def process_abdm_task(self, pdf_path: str, model: str = "gemma4"):
             "doc_types": doc_types,
             "bundle_count": len(bundles),
             "bundles": bundles,
-            "bundle_gcs_uris": bundle_gcs_uris,
             "model_used": model,
         }
         r = _get_redis()
@@ -156,7 +147,6 @@ def process_abdm_task(self, pdf_path: str, model: str = "gemma4"):
 
         log_payload.update({
             "pdf_location": f"pdf_uploads/abdm/{task_filename}",
-            "json_location": bundle_gcs_uris[0] if bundle_gcs_uris else None,
         })
 
         update("Completed", 100)

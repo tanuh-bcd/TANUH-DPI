@@ -3,11 +3,11 @@
     <button class="sub-tab-btn active" onclick="openSubTab('PDF2NHCX','insurance-main',this)">
         <i class="fas fa-shield-alt"></i> Insurance Policy
     </button>
-    <button class="sub-tab-btn" onclick="openSubTab('PDF2NHCX','insurance-runlocally',this)">
-        <i class="fas fa-download"></i> Run Locally
-    </button>
     <button class="sub-tab-btn" onclick="openSubTab('PDF2NHCX','insurance-api',this)">
         <i class="fas fa-code"></i> API Access
+    </button>
+    <button class="sub-tab-btn" onclick="openSubTab('PDF2NHCX','insurance-runlocally',this)">
+        <i class="fas fa-download"></i> Run Locally
     </button>
     <button class="sub-tab-btn" onclick="openSubTab('PDF2NHCX','insurance-docs',this)">
         <i class="fas fa-book"></i> User Guide
@@ -189,6 +189,12 @@
             <strong><i class="fas fa-shield-alt"></i> Privacy:</strong> All data stays on your machine. Zero cloud API calls. The output JSON contains a complete FHIR R4 Bundle.
         </p>
     </div>
+</div>
+
+<div style="text-align:center; margin:20px 0;">
+    <a href="javascript:void(0)" onclick="openSubTab('PDF2NHCX','insurance-docs',document.querySelector('#PDF2NHCX .sub-tab-btn:nth-child(4)')); setTimeout(function(){ guideNav('insurance-guide-container','ig-runlocally',document.querySelector('#insurance-guide-container .guide-sidebar a[onclick*=ig-runlocally]')); },100);" style="display:inline-flex; align-items:center; gap:8px; padding:10px 24px; background:#14868C; color:#fff; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600; transition:background 0.2s;" onmouseover="this.style.background='#0E6C71'" onmouseout="this.style.background='#14868C'">
+        <i class="fas fa-book-open"></i> More Details in User Guide
+    </a>
 </div>
 
 </div><!-- /insurance-runlocally -->
@@ -456,7 +462,7 @@
                 <div class="guide-pipeline-step"><h4>3. NHCX Resource Selection</h4><p>LLM identifies which insurance-specific FHIR resources are present in the document.</p></div>
                 <div class="guide-pipeline-step"><h4>4. LangGraph Extraction (Dependency-Ordered)</h4><p>Each resource extracted via dedicated LLM call with NHCX rulebook (StructureDefinition JSON) loaded into prompt context.</p></div>
                 <div class="guide-pipeline-step"><h4>5. Sanitization &amp; Assembly</h4><p><code>sanitize_fhir_resource()</code> fixes hallucinated types, missing required fields, invalid code systems. Bundle assembled with InsurancePlan first.</p></div>
-                <div class="guide-pipeline-step"><h4>6. PDF Embedding &amp; Upload</h4><p>Original PDF embedded as base64 Binary resource. Final bundle uploaded to GCS and cached in Redis.</p></div>
+                <div class="guide-pipeline-step"><h4>6. PDF Embedding &amp; Caching</h4><p>Original PDF embedded as base64 Binary resource. Final bundle cached in Redis (24h TTL).</p></div>
             </div>
 
             <h3>Rulebook-Driven Extraction</h3>
@@ -502,8 +508,8 @@
                 <tbody>
                     <tr><td>Model</td><td><code>publishers/google/models/gemma-4-26b-a4b-it-maas</code></td></tr>
                     <tr><td>Provider</td><td>Google Vertex AI (Model-as-a-Service)</td></tr>
-                    <tr><td>Temperature</td><td>0.1 (deterministic extraction)</td></tr>
-                    <tr><td>Max Tokens</td><td>65,536</td></tr>
+                    <tr><td>Temperature</td><td>0.3</td></tr>
+                    <tr><td>Max Tokens</td><td>Depends on Resource</td></tr>
                     <tr><td>Context Window</td><td>128K tokens</td></tr>
                 </tbody>
             </table>
@@ -557,9 +563,7 @@
                     <tr><td>Wrong <code>resourceType</code></td><td>Corrected to match expected type</td></tr>
                     <tr><td>Missing required fields</td><td>Populated with sensible defaults</td></tr>
                     <tr><td>Invalid code systems</td><td>Replaced with correct canonical URLs</td></tr>
-                    <tr><td>Broken internal references</td><td>Resolved using ID registry</td></tr>
                     <tr><td>Incorrect date formats</td><td>Normalized to FHIR dateTime format</td></tr>
-                    <tr><td>Hallucinated extensions</td><td>Removed if not in profile</td></tr>
                 </tbody>
             </table>
 
@@ -581,22 +585,22 @@
 
             <h3>Download</h3>
             <div class="guide-card-grid">
-                <a href="https://drive.google.com/file/d/1Jb-KK6i1bTNtJ9731zMX8MBcMXfcWalI/view?usp=sharing" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
+                <a href="/downloads/nhcx-extract-linux-x86_64.zip" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
                     <div class="card-icon"><i class="fab fa-linux"></i></div>
                     <h4>Linux x86_64</h4>
                     <p>AppImage (~400 MB)</p>
                 </a>
-                <a href="https://drive.google.com/file/d/16t_R4U3emX9DswYferLZwRtKHjgHP2YB/view?usp=sharing" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
+                <a href="/downloads/nhcx-extract-linux-aarch64.zip" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
                     <div class="card-icon"><i class="fab fa-linux"></i></div>
                     <h4>Linux ARM64</h4>
                     <p>Binary (~400 MB)</p>
                 </a>
-                <a href="https://drive.google.com/file/d/16rnbuXTHooIWeh4R_2OmxLBNOnbjHt7D/view?usp=sharing" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
+                <a href="/downloads/nhcx-extract-windows-x86_64.zip" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
                     <div class="card-icon"><i class="fab fa-windows"></i></div>
                     <h4>Windows</h4>
                     <p>Portable EXE (~400 MB)</p>
                 </a>
-                <a href="https://drive.google.com/file/d/1Lf6Mbydg_KCnPS-xKkDRwqVuvkFaQgYW/view?usp=sharing" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
+                <a href="/downloads/nhcx-extract-macos.zip" target="_blank" class="guide-card" style="text-decoration:none;text-align:center;">
                     <div class="card-icon"><i class="fab fa-apple"></i></div>
                     <h4>macOS</h4>
                     <p>Binary (~400 MB)</p>
@@ -623,8 +627,9 @@
             </table>
 
             <div class="guide-callout guide-callout-success">
-                <strong>Source code is not exposed</strong>
-                The executable bundles everything into a compressed binary. Users cannot see or modify the pipeline source code.
+                <strong>About Run Locally - Secure Local Execution</strong>
+                This feature enables running the service completely locally with only the file and Ollama model. All processing occurs within your local environment, ensuring data privacy and security. The service operates independently without requiring external connections, making it 
+  ideal for confidential or sensitive data handling. For those interested in contributing, the source code is publicly available and contributions are welcome.
             </div>
         </div>
 
@@ -721,9 +726,8 @@ curl https://dpi-dev.tanuh.ai/pdf2nhcx/task-result/{task_id}</code></pre>
                     <tr><td><code>GOOGLE_CLOUD_PROJECT</code></td><td>Yes</td><td>GCP project ID for Vertex AI</td></tr>
                     <tr><td><code>GOOGLE_APPLICATION_CREDENTIALS</code></td><td>Yes</td><td>Path to service account JSON</td></tr>
                     <tr><td><code>REDIS_URL</code></td><td>Yes</td><td>Redis connection string</td></tr>
-                    <tr><td><code>GCS_BUCKET</code></td><td>Yes</td><td>GCS bucket for output storage</td></tr>
                     <tr><td><code>TASK_RESULT_TTL</code></td><td>No</td><td>Redis result cache TTL (default: 86400s)</td></tr>
-                    <tr><td><code>MAX_FILE_SIZE_MB</code></td><td>No</td><td>Upload size limit (default: 50MB)</td></tr>
+                    <tr><td><code>MAX_FILE_SIZE_MB</code></td><td>Yes</td><td>Upload size limit (25MB)</td></tr>
                 </tbody>
             </table>
 
@@ -766,23 +770,31 @@ docker compose logs -f pdf2nhcx celery-worker</code></pre>
 <!-- SUB: Team -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div id="insurance-team" class="sub-content" style="display:none">
+
+<div class="tab-header">
+    <div class="tab-header-text">
+        <h2><i class="fas fa-users" style="color:var(--primary)"></i> Insurance Policy Team</h2>
+        <p>The team behind the Insurance pipeline.</p>
+    </div>
+</div>
+
 <div style="padding:20px;background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);margin:20px 0;">
-    <h3>Team Members</h3>
+    <!-- <h3>Team Members</h3> -->
     <div class="fg-team-grid">
         <a href="https://www.linkedin.com/in/venkata-sai-manideep-nanepalli-42bab3261/" target="_blank" style="text-decoration:none;">
-            <div class="fg-team-card"><img src="assets/manideep.png" alt="Venkata Sai Manideep Nanepalli"><div class="team-name">Venkata Sai Manideep Nanepalli</div><div class="team-role">Technical Staff</div><div class="team-org">TANUH AI-COE</div></div>
+            <div class="fg-team-card"><img src="assets/manideep.png" alt="Venkata Sai Manideep Nanepalli"><div class="team-name">Venkata Sai Manideep Nanepalli</div><div class="team-role">Technical Staff</div><div class="team-org">TANUH AI-CoE</div></div>
         </a>
         <a href="https://www.linkedin.com/in/bharath-kumar-tangella-628738213/" target="_blank" style="text-decoration:none;">
-            <div class="fg-team-card"><img src="assets/bharath.png" alt="Bharath Kumar Tangella"><div class="team-name">Bharath Kumar Tangella</div><div class="team-role">Technical Staff</div><div class="team-org">TANUH AI-COE</div></div>
+            <div class="fg-team-card"><img src="assets/bharath.png" alt="Bharath Kumar Tangella"><div class="team-name">Bharath Kumar Tangella</div><div class="team-role">Technical Staff</div><div class="team-org">TANUH AI-CoE</div></div>
         </a>
         <a href="https://www.linkedin.com/in/ashwin-rajkumar/" target="_blank" style="text-decoration:none;">
-            <div class="fg-team-card"><img src="assets/ashwin.png" alt="Dr. Ashwin RaajKumar"><div class="team-name">Dr. Ashwin RaajKumar</div><div class="team-role">Program Manager</div><div class="team-org">TANUH AI-COE</div></div>
+            <div class="fg-team-card"><img src="assets/ashwin.png" alt="Dr. Ashwin RajKumar"><div class="team-name">Dr. Ashwin RajKumar</div><div class="team-role">(Breast Cancer Detection)<br>Program Manager</div><div class="team-org">TANUH AI-CoE</div></div>
         </a>
         <a href="https://www.linkedin.com/in/s-hema-priyadarshini-ph-d-64246314/" target="_blank" style="text-decoration:none;">
-            <div class="fg-team-card"><img src="assets/hema.png" alt="Dr. Hema Priyadarshini"><div class="team-name">Dr. Hema Priyadarshini</div><div class="team-role">Program Manager</div><div class="team-org">TANUH AI-COE</div></div>
+            <div class="fg-team-card"><img src="assets/hema.png" alt="Dr. Hema Priyadarshini"><div class="team-name">Dr. Hema Priyadarshini</div><div class="team-role">(Chronic Kidney Disease)<br>Program Manager</div><div class="team-org">TANUH AI-CoE</div></div>
         </a>
         <a href="https://cds.iisc.ac.in/faculty/yalavarthy/" target="_blank" style="text-decoration:none;">
-            <div class="fg-team-card"><img src="assets/Prof_PKY.png" alt="Dr. Phaneendra K. Yalavarthy"><div class="team-name">Dr. Phaneendra K. Yalavarthy</div><div class="team-role">Chief Project Manager</div><div class="team-org">TANUH AI-COE</div></div>
+            <div class="fg-team-card"><img src="assets/Prof_PKY.png" alt="Dr. Phaneendra K. Yalavarthy"><div class="team-name">Dr. Phaneendra K. Yalavarthy</div><div class="team-role">Chief Project Manager</div><div class="team-org">TANUH AI-CoE</div></div>
         </a>
     </div>
 </div>

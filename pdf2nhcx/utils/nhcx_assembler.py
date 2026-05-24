@@ -258,13 +258,13 @@ def document_reference_node(bundle: dict, pdf_base64: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# strip_binary_data — call AFTER document_reference_node, BEFORE GCS upload
+# strip_binary_data — call AFTER document_reference_node
 # ─────────────────────────────────────────────────────────────────────────────
 
 def strip_binary_data(bundle: dict, gcs_pdf_uri: str = None) -> dict:
     """
-    Remove Binary resources from the bundle before saving to GCS.
-    
+    Remove Binary resources from the bundle.
+
     The PDF data is embedded directly into DocumentReference.content[].attachment.data
     as requested by NHCX instead of a URL.
     """

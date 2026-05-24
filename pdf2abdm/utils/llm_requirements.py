@@ -937,33 +937,15 @@ def run_abdm_pipeline(extracted_text: str, clinical_artifact: str, selected_othe
     
     # Build and run dynamic workflow
     app, used_resources = build_dynamic_workflow(clinical_artifact, selected_other_resources, rulebook_paths)
-    # output_dir is legacy — pipeline uploads directly to GCS.
-    # Use a transient temp path only as a fallback label (never written to disk).
-    import tempfile
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-    _out_label = output_dir or tempfile.gettempdir()
-    output_path = os.path.join(_out_label, f"FHIR_BUNDLE_{clinical_artifact}_Patient_{idx}.json")
-
-
-
-    print(f"🚀 Starting FHIR Bundle Generation for Patient {idx}...")
+    print(f"Starting FHIR Bundle Generation for Patient {idx}...")
     final_output = app.invoke(initial_state)
     bundle = final_output['final_resources'][-1]
-    
-    # Process the bundle in memory
+
     bundle = clean_and_reorder_bundle(bundle)
     bundle = document_reference_node(bundle, pdf_base64=pdf_base64)
-    
-    # Upload to GCS instead of local file save
-    from utils.gcs_storage import upload_json_to_gcs
-    filename = f"FHIR_BUNDLE_{clinical_artifact}_Patient_{idx}.json"
-    gcs_uri = upload_json_to_gcs(bundle, "json_output/abdm", filename)
-    
-    print(f"\n SUCCESS! FHIR Bundle generated (GCS: {gcs_uri})")
-    print(f" Resources processed: {used_resources}")
-    print(f" Bundle entries: {len(bundle['entry'])}")
-    
+
+    print(f"FHIR Bundle generated — resources: {used_resources}, entries: {len(bundle['entry'])}")
+
     return bundle
 
 
@@ -1157,9 +1139,5 @@ def run_nhcx_insurance_pipeline(distilled_text: str, clinical_artifact: str, sel
     bundle = clean_and_reorder_bundle(bundle)
     bundle = document_reference_node(bundle, pdf_base64=pdf_base64)
 
-    from utils.gcs_storage import upload_json_to_gcs
-    filename = f"FHIR_BUNDLE_{clinical_artifact}_Patient_{idx}.json"
-    gcs_uri = upload_json_to_gcs(bundle, "json_output/nhcx", filename)
-
-    print(f"NHCX FHIR Bundle generated (GCS: {gcs_uri}), entries: {len(bundle.get('entry', []))}")
+    print(f"NHCX FHIR Bundle generated, entries: {len(bundle.get('entry', []))}")
     return bundle

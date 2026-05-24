@@ -339,12 +339,7 @@ async def convert_pdf_to_abdm(
     session_id = str(uuid.uuid4())
     client_ip = request.client.host if request else None
 
-    # Read bytes and upload directly to GCS (no local file written)
     file_bytes = await file.read()
-    from utils.gcs_storage import upload_pdf_from_bytes
-    gcs_uri = upload_pdf_from_bytes(file_bytes, filename, "pdf_uploads/abdm")
-    if gcs_uri:
-        logger.info(f"PDF uploaded to GCS: {gcs_uri}")
 
     # Temp file for OCR engine (needs a path, auto-deleted after)
     import tempfile
@@ -357,7 +352,6 @@ async def convert_pdf_to_abdm(
         "ip_address": client_ip or "unknown",
         "state": state,
         "city": city,
-        "pdf_location": gcs_uri,
     }
     try:
         validate_pdf_upload(tmp_path)
@@ -365,7 +359,6 @@ async def convert_pdf_to_abdm(
         result = await get_abdm_json(tmp_path, model=model)
         bundles, doc_types = result if result else ([], [])
         processing_time = round(time.perf_counter() - start_time, 2)
-        # Store the GCS URI of the first bundle JSON as json_location
         if bundles and doc_types:
             log_payload["json_location"] = f"json_output/abdm/FHIR_BUNDLE_{doc_types[0]}_Patient_0.json"
     except Exception as exc:
@@ -397,17 +390,10 @@ async def convert_pdf_to_abdm_url(body: LocalFileRequest, background_tasks: Back
     logger.info(f"Received local PDF request for: {file_path}")
     validate_pdf_upload(file_path)
 
-    # Upload PDF to GCS (file is from mounted volume, no extra VM copy)
-    from utils.gcs_storage import upload_pdf_to_gcs
-    gcs_uri = upload_pdf_to_gcs(file_path, "pdf_uploads/abdm")
-    if gcs_uri:
-        logger.info(f"PDF uploaded to GCS: {gcs_uri}")
-
     filename = os.path.basename(file_path)
     log_payload = {
         "service": "pdf2abdm",
         "ip_address": "unknown",
-        "pdf_location": gcs_uri,
     }
     try:
         start_time = time.perf_counter()
@@ -448,12 +434,7 @@ async def submit_abdm(
     """
     filename = file.filename.replace(" ", "_")
 
-    # ── Stream PDF bytes directly to GCS (no local file written) ─────────
     file_bytes = await file.read()
-    from utils.gcs_storage import upload_pdf_from_bytes
-    gcs_uri = upload_pdf_from_bytes(file_bytes, filename, "pdf_uploads/abdm")
-    if gcs_uri:
-        logger.info(f"PDF uploaded to GCS: {gcs_uri}")
 
     # Write PDF to shared volume so the Celery worker (separate container) can read it.
     # /tmp is local to this container; /app/pdf_uploads is mounted in both containers.
@@ -470,7 +451,6 @@ async def submit_abdm(
     return JSONResponse(status_code=202, content={
         "task_id": task.id,
         "status": "queued",
-        "gcs_pdf_uri": gcs_uri,
         "poll_url": f"/pdf2abdm/task-status/{task.id}",
         "result_url": f"/pdf2abdm/task-result/{task.id}",
         "message": "Processing started. Poll poll_url every 5–10 s for updates.",

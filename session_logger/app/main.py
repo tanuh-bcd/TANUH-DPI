@@ -10,8 +10,8 @@ Table schema (existing):
     state         varchar(100)
     city          varchar(100)
     document_type enum('clinical_document','insurance_document')
-    pdf_location  text   — GCS URI of uploaded PDF
-    json_location text   — GCS URI of output JSON
+    pdf_location  text   — filename of uploaded PDF
+    json_location text   — (unused, kept for schema compatibility)
     created_at    datetime (auto IST)
 
 Endpoints:
@@ -396,55 +396,16 @@ def log_stats(db: Session = Depends(get_db)):
     }
 
 
-# ── Privacy Filter stats proxy (reads from GCS) ────────────────────────────────
-
-_PF_STATS_CACHE: dict = {}          # simple in-process cache
-_PF_STATS_CACHE_TS: float = 0.0    # last fetch time
 
 @app.get("/logs/pf-stats", tags=["Analytics"],
-         summary="Privacy Filter stats from GCS bucket")
+         summary="Privacy Filter usage stats")
 def pf_stats():
-    """
-    Reads tanuh-bcd-bucket/privacy-app/stats/counters.json and returns
-    the JSON content. Results are cached for 60 seconds to avoid hammering GCS.
-    Falls back to zeroes if the file is unavailable.
-    """
-    import os, json, time
-
-    global _PF_STATS_CACHE, _PF_STATS_CACHE_TS
-
-    now = time.monotonic()
-    if _PF_STATS_CACHE and (now - _PF_STATS_CACHE_TS) < 60:
-        return _PF_STATS_CACHE
-
-    GCS_CREDS = os.getenv("GCS_CREDENTIALS_JSON")
-    BUCKET    = "tanuh-bcd-bucket"
-    BLOB_PATH = "privacy-app/stats/counters.json"
-
-    try:
-        from google.cloud import storage
-        from google.oauth2 import service_account
-
-        if GCS_CREDS and os.path.exists(GCS_CREDS):
-            creds = service_account.Credentials.from_service_account_file(GCS_CREDS)
-            client = storage.Client(credentials=creds)
-        else:
-            client = storage.Client()   # use ADC if no file
-
-        blob = client.bucket(BUCKET).blob(BLOB_PATH)
-        data = json.loads(blob.download_as_text())
-        _PF_STATS_CACHE    = data
-        _PF_STATS_CACHE_TS = now
-        logger.info("[pf-stats] fetched from GCS: %s", data)
-        return data
-
-    except Exception as exc:
-        logger.warning("[pf-stats] GCS read failed: %s — returning zeros", exc)
-        return {
-            "page_visits":    0,
-            "docs_redacted":  0,
-            "unique_visitors": 0,
-        }
+    """Return zeroed stats (cloud persistence removed)."""
+    return {
+        "page_visits":    0,
+        "docs_redacted":  0,
+        "unique_visitors": 0,
+    }
 
 
 # ── NHCX Page Visit tracking ──────────────────────────────────────────────────

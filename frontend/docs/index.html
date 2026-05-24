@@ -199,7 +199,7 @@
                 </div>
                 <div class="pipeline-step">
                     <h4>6. Result Delivery</h4>
-                    <p>FHIR bundle stored in Redis (24h TTL) and uploaded to GCS.</p>
+                    <p>FHIR bundle stored in Redis (24h TTL).</p>
                 </div>
             </div>
         </section>
@@ -220,8 +220,7 @@
             <p>Create a <code>.env</code> file in the project root:</p>
             <pre><code>GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-REDIS_URL=redis://redis:6379/0
-GCS_BUCKET=your-bucket-name</code></pre>
+REDIS_URL=redis://redis:6379/0</code></pre>
 
             <h2>Launch</h2>
             <pre><code># Clone the repository
@@ -358,8 +357,8 @@ curl http://localhost:8080/pdf2nhcx/task-result/{task_id}</code></pre>
                     <p><code>sanitize_fhir_resource()</code> fixes hallucinated types, missing required fields, invalid code systems. Bundle assembled with InsurancePlan first.</p>
                 </div>
                 <div class="pipeline-step">
-                    <h4>6. PDF Embedding &amp; Upload</h4>
-                    <p>Original PDF embedded as base64 Binary resource. Final bundle uploaded to GCS and cached in Redis.</p>
+                    <h4>6. PDF Embedding &amp; Caching</h4>
+                    <p>Original PDF embedded as base64 Binary resource. Final bundle cached in Redis (24h TTL).</p>
                 </div>
             </div>
 
@@ -666,7 +665,7 @@ curl http://localhost:8080/pdf2nhcx/task-result/{task_id}</code></pre>
                     <code>/pdf2nhcx/task-result/{task_id}</code>
                 </div>
                 <div class="endpoint-body">
-                    <p><strong>Retrieve completed result.</strong> Includes full FHIR bundle, GCS URI, and model used.</p>
+                    <p><strong>Retrieve completed result.</strong> Includes full FHIR bundle and model used.</p>
                 </div>
             </div>
         </section>
@@ -955,7 +954,6 @@ services:
                     <tr><td><code>GOOGLE_CLOUD_PROJECT</code></td><td>Yes</td><td>GCP project ID for Vertex AI</td></tr>
                     <tr><td><code>GOOGLE_APPLICATION_CREDENTIALS</code></td><td>Yes</td><td>Path to service account JSON</td></tr>
                     <tr><td><code>REDIS_URL</code></td><td>Yes</td><td>Redis connection string</td></tr>
-                    <tr><td><code>GCS_BUCKET</code></td><td>Yes</td><td>GCS bucket for output storage</td></tr>
                     <tr><td><code>TASK_RESULT_TTL</code></td><td>No</td><td>Redis result cache TTL (default: 86400s)</td></tr>
                     <tr><td><code>MAX_FILE_SIZE_MB</code></td><td>No</td><td>Upload size limit (default: 50MB)</td></tr>
                 </tbody>
@@ -1020,7 +1018,7 @@ docker exec redis redis-cli LLEN celery</code></pre>
                     <tr><td>OCR</td><td>15%</td><td>Text extraction in progress</td></tr>
                     <tr><td>Classifying document</td><td>30%</td><td>Resource type identification</td></tr>
                     <tr><td>LLM Extraction</td><td>50%</td><td>FHIR resource generation</td></tr>
-                    <tr><td>Storing results</td><td>95%</td><td>Redis + GCS upload</td></tr>
+                    <tr><td>Storing results</td><td>95%</td><td>Redis caching</td></tr>
                     <tr><td>Completed</td><td>100%</td><td>Ready for retrieval</td></tr>
                 </tbody>
             </table>

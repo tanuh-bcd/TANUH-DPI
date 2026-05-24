@@ -31,12 +31,6 @@ class Settings(BaseSettings):
     # ── Storage (local) ───────────────────────────────────────────────────────
     upload_dir: str = "uploads"
 
-    # ── GCS Storage ───────────────────────────────────────────────────────────
-    gcs_enabled: bool = False          # set True + provide credentials to enable
-    gcs_bucket: str = "tanuh-bcd-bucket"
-    gcs_credentials_json: str = ""     # path to dedicated GCS SA JSON (priority 1)
-    gcs_upload_prefix: str = "nhcx-extraction"  # folder prefix inside the bucket
-
     # ── Webhook ───────────────────────────────────────────────────────────────
     webhook_timeout_seconds: int = 10
     webhook_max_retries: int = 3
