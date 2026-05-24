@@ -284,7 +284,7 @@ print(r.json()["entity_counts"])</pre>
 <div class="tab-header">
     <div class="tab-header-text">
         <h2><i class="fas fa-download" style="color:var(--primary)"></i> Run Locally (Offline Mode)</h2>
-        <p>Download a single executable for your OS. No Python, no pip, no cloud APIs. Both AI models are bundled — all PII detection and redaction stays on your machine.</p>
+        <p>Download a lightweight executable for your OS. On first launch it automatically downloads the AI models (~500 MB one-time). After that, everything runs fully offline on your machine.</p>
     </div>
 </div>
 
@@ -317,7 +317,7 @@ print(r.json()["entity_counts"])</pre>
     <div style="margin-bottom:20px; padding:15px; border-left:4px solid #14868C; background:#f0fdfa; border-radius:0 6px 6px 0;">
         <h4 style="margin:0 0 8px 0; color:#0f766e;">1. Download Executable</h4>
         <p style="margin:0; color:#0f766e; font-size:14px;">
-            Download the standalone binary for your OS from the links above.
+            Download the lightweight binary for your OS from the links above.
         </p>
     </div>
 
@@ -329,9 +329,12 @@ print(r.json()["entity_counts"])</pre>
     </div>
 
     <div style="margin-bottom:20px; padding:15px; border-left:4px solid #14868C; background:#f0fdfa; border-radius:0 6px 6px 0;">
-        <h4 style="margin:0 0 8px 0; color:#0f766e;">3. Launch the App</h4>
-        <p style="margin:0; color:#0f766e; font-size:14px;">
-            Double-click the executable. It opens a GUI window and starts loading the AI models (~30 seconds on CPU).
+        <h4 style="margin:0 0 8px 0; color:#0f766e;">3. Launch the App (First Run — Downloads Models)</h4>
+        <p style="margin:0 0 8px 0; color:#0f766e; font-size:14px;">
+            Double-click the executable and click <strong>Start Server</strong>. On the first run, the app automatically downloads two AI models from HuggingFace (~500 MB total). This requires an internet connection once.
+        </p>
+        <p style="margin:0; color:#64748b; font-size:13px;">
+            Models: <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">openai/privacy-filter</code> + <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">dslim/bert-base-NER</code> — cached at <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">~/.privacy_filter/models/</code>
         </p>
     </div>
 
@@ -343,15 +346,15 @@ print(r.json()["entity_counts"])</pre>
     </div>
 
     <div style="margin-bottom:20px; padding:15px; border-left:4px solid #14868C; background:#f0fdfa; border-radius:0 6px 6px 0;">
-        <h4 style="margin:0 0 8px 0; color:#0f766e;">5. Upload &amp; Redact</h4>
+        <h4 style="margin:0 0 8px 0; color:#0f766e;">5. Upload &amp; Redact (Fully Offline)</h4>
         <p style="margin:0; color:#0f766e; font-size:14px;">
-            Upload any supported document (PDF, DOCX, images, DICOM, text). PII is detected and redacted entirely on your machine.
+            Upload any supported document (PDF, DOCX, images, DICOM, text). All subsequent runs are completely offline — no internet needed.
         </p>
     </div>
 
     <div style="padding:12px 15px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:0 6px 6px 0;">
         <p style="margin:0; color:#92400e; font-size:14px;">
-            <strong><i class="fas fa-shield-alt"></i> Privacy:</strong> All data stays on your machine. Zero cloud API calls. Both <code>openai/privacy-filter</code> and <code>dslim/bert-base-NER</code> models are bundled offline.
+            <strong><i class="fas fa-shield-alt"></i> Privacy:</strong> All data stays on your machine. Models are downloaded once from HuggingFace and cached locally. After the first run, zero internet or cloud API calls are made.
         </p>
     </div>
 </div>
@@ -535,11 +538,11 @@ print(r.json()["entity_counts"])</pre>
         <!-- Run Locally -->
         <div id="pg-runlocally" class="guide-section">
             <h2>Run Locally (Offline Mode)</h2>
-            <p>Download a standalone executable for your operating system. No Python, no pip, no cloud APIs needed. The privacy filter model is bundled inside the executable — all PII detection and redaction happens entirely on your machine.</p>
+            <p>Download a lightweight executable for your operating system. No Python, no pip, no cloud APIs needed. On the first launch, the app automatically downloads the required AI models (~500 MB one-time). After that, all PII detection and redaction happens entirely on your machine without any internet connection.</p>
 
             <div class="guide-callout guide-callout-info">
-                <strong>Bundled AI Models</strong>
-                The executable includes both the <code>openai/privacy-filter</code> model and the <code>dslim/bert-base-NER</code> auxiliary model. On first launch, the app loads models into memory (~30s on CPU), then starts a local server with the full privacy filter UI.
+                <strong>AI Models — One-Time Download</strong>
+                The app uses two models: <code>openai/privacy-filter</code> (PII detection) and <code>dslim/bert-base-NER</code> (auxiliary NER). On first launch, both are downloaded from HuggingFace (~500 MB total) and cached at <code>~/.privacy_filter/models/</code>. Subsequent launches load from cache in ~30 seconds — no internet required.
             </div>
 
             <h3>Download</h3>
@@ -568,11 +571,11 @@ print(r.json()["entity_counts"])</pre>
 
             <h3>Setup Steps</h3>
             <div class="guide-pipeline">
-                <div class="guide-pipeline-step"><h4>1. Download Executable</h4><p>Download the standalone binary for your OS from the links above.</p></div>
+                <div class="guide-pipeline-step"><h4>1. Download Executable</h4><p>Download the lightweight binary for your OS from the links above.</p></div>
                 <div class="guide-pipeline-step"><h4>2. Unzip &amp; Make Executable</h4><p>Extract the ZIP file. On Linux/Mac run: <code>chmod +x PrivacyFilterApp</code></p></div>
-                <div class="guide-pipeline-step"><h4>3. Launch the App</h4><p>Double-click the executable. It opens a GUI window and starts loading the AI models (~30 seconds on CPU).</p></div>
+                <div class="guide-pipeline-step"><h4>3. First Launch — Model Download</h4><p>Double-click the executable and click <strong>Start Server</strong>. On first run, the app downloads two AI models from HuggingFace (~500 MB). This requires internet once. Models are cached at <code>~/.privacy_filter/models/</code> for all future runs.</p></div>
                 <div class="guide-pipeline-step"><h4>4. Open Browser</h4><p>Once models are loaded, click "Open Browser" to access the full Privacy Filter interface at <code>http://localhost:8003</code>.</p></div>
-                <div class="guide-pipeline-step"><h4>5. Upload &amp; Redact</h4><p>Upload any supported document (PDF, DOCX, images, DICOM, text). PII is detected and redacted entirely on your machine.</p></div>
+                <div class="guide-pipeline-step"><h4>5. Upload &amp; Redact (Fully Offline)</h4><p>Upload any supported document (PDF, DOCX, images, DICOM, text). All subsequent runs are completely offline — no internet needed.</p></div>
             </div>
 
             <h3>Supported Formats</h3>
@@ -589,7 +592,7 @@ print(r.json()["entity_counts"])</pre>
 
             <div class="guide-callout guide-callout-success">
                 <strong>About Run Locally — Secure Local Execution</strong>
-                This feature enables running the Privacy Filter completely locally with bundled AI models. All processing occurs within your local environment, ensuring data privacy and security. The service operates independently without requiring any external connections, making it ideal for confidential or sensitive data handling. For those interested in contributing, the source code is publicly available and contributions are welcome.
+                This feature enables running the Privacy Filter completely locally. Models are downloaded once from HuggingFace on first launch and cached on your machine. After that, all processing occurs within your local environment with zero external connections, ensuring data privacy and security. The service operates independently, making it ideal for confidential or sensitive data handling. For those interested in contributing, the source code is publicly available and contributions are welcome.
             </div>
         </div>
 

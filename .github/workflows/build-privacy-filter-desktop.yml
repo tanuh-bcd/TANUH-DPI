@@ -53,18 +53,19 @@ jobs:
           echo "C:\Program Files\Tesseract-OCR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Python Dependencies
+        shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+          pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
             torch==2.5.1 \
             transformers==5.6.2 \
             accelerate==1.10.0 \
             safetensors==0.5.2 \
             huggingface-hub==1.12.0 \
             tokenizers==0.22.2
-          pip install \
+          pip install --no-cache-dir \
             fastapi==0.115.4 \
-            uvicorn[standard]==0.32.0 \
+            "uvicorn[standard]==0.32.0" \
             python-multipart==0.0.12 \
             jinja2==3.1.4 \
             pydantic==2.9.2 \
@@ -81,25 +82,14 @@ jobs:
             "python-jose[cryptography]==3.3.0" \
             email-validator==2.1.1 \
             httpx==0.27.0
-          pip install customtkinter pyinstaller
-
-      - name: Download Models (cache for bundling)
-        run: |
-          python -c "
-          from transformers import pipeline
-          print('Downloading openai/privacy-filter...')
-          pipeline('token-classification', model='openai/privacy-filter', aggregation_strategy='simple', device=-1)
-          print('Downloading dslim/bert-base-NER...')
-          pipeline('token-classification', model='dslim/bert-base-NER', aggregation_strategy='simple', device=-1)
-          print('Models downloaded successfully.')
-          "
+          pip install --no-cache-dir customtkinter pyinstaller
 
       - name: Create GUI launcher
         shell: bash
         run: |
           cat > privacy_filter_gui.py << 'PYEOF'
-          """Privacy Filter Desktop App — offline PII detection & redaction."""
-          import os, sys, json, threading, tempfile, time, uuid, webbrowser
+          """Privacy Filter Desktop App — lightweight launcher (models downloaded on first run)."""
+          import os, sys, json, threading, tempfile, webbrowser
           from pathlib import Path
 
           os.environ["STORAGE_BACKEND"] = "local"
@@ -109,11 +99,14 @@ jobs:
 
           if getattr(sys, "frozen", False):
               base = Path(sys._MEIPASS)
-              os.environ.setdefault("HF_HOME", str(base / "models"))
-              os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(base / "models"))
-              os.environ.setdefault("TRANSFORMERS_CACHE", str(base / "models"))
           else:
               base = Path(__file__).parent
+
+          model_cache = Path.home() / ".privacy_filter" / "models"
+          model_cache.mkdir(parents=True, exist_ok=True)
+          os.environ.setdefault("HF_HOME", str(model_cache))
+          os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(model_cache / "hub"))
+          os.environ.setdefault("TRANSFORMERS_CACHE", str(model_cache / "hub"))
 
           data_dir = Path(tempfile.gettempdir()) / "privacy_filter_data"
           data_dir.mkdir(parents=True, exist_ok=True)
@@ -136,6 +129,7 @@ jobs:
 
                   self.server_thread = None
                   self.server_running = False
+                  self.first_run = not (model_cache / "hub").exists()
 
                   main = ctk.CTkFrame(self, fg_color="transparent")
                   main.pack(fill="both", expand=True, padx=30, pady=20)
@@ -148,6 +142,10 @@ jobs:
                   self.status = ctk.CTkLabel(main, text="Ready to start",
                                              font=ctk.CTkFont(size=14))
                   self.status.pack(pady=5)
+
+                  self.detail = ctk.CTkLabel(main, text="",
+                                             font=ctk.CTkFont(size=11), text_color="gray")
+                  self.detail.pack(pady=(0,2))
 
                   self.progress = ctk.CTkProgressBar(main, width=350)
                   self.progress.pack(pady=10)
@@ -176,8 +174,13 @@ jobs:
 
               def start_server(self):
                   self.start_btn.configure(state="disabled")
-                  self.status.configure(text="Loading models...")
-                  self.progress.set(0.2)
+                  if self.first_run:
+                      self.status.configure(text="Downloading AI models (first run)...")
+                      self.detail.configure(text="This is a one-time download (~500 MB). Please wait.")
+                  else:
+                      self.status.configure(text="Loading models...")
+                      self.detail.configure(text="")
+                  self.progress.set(0.1)
                   self.server_thread = threading.Thread(target=self._run_server, daemon=True)
                   self.server_thread.start()
                   self.after(500, self._poll_health)
@@ -195,16 +198,20 @@ jobs:
                       r = urllib.request.urlopen(f"http://127.0.0.1:{PORT}/api/health", timeout=2)
                       data = json.loads(r.read())
                       if data.get("model_loaded"):
-                          self.status.configure(text="Server running — model loaded")
+                          self.status.configure(text="Server running — models loaded")
+                          self.detail.configure(text="Models cached locally for future use.")
                           self.progress.set(1.0)
                           self.open_btn.configure(state="normal")
                           return
                   except Exception:
                       pass
                   p = self.progress.get()
-                  self.progress.set(min(p + 0.05, 0.95))
-                  self.status.configure(text="Loading models...")
-                  self.after(2000, self._poll_health)
+                  self.progress.set(min(p + 0.03, 0.95))
+                  if self.first_run:
+                      self.status.configure(text="Downloading & loading models...")
+                  else:
+                      self.status.configure(text="Loading models...")
+                  self.after(3000, self._poll_health)
 
               def open_browser(self):
                   webbrowser.open(f"http://localhost:{PORT}")
@@ -221,25 +228,9 @@ jobs:
       - name: Create PyInstaller spec
         shell: bash
         run: |
-          python -c "
-          import transformers, torch, safetensors, tokenizers, huggingface_hub
-          import os
-          hf_cache = os.environ.get('HF_HOME', os.path.expanduser('~/.cache/huggingface'))
-          print(f'HF_HOME={hf_cache}')
-          print(f'transformers={os.path.dirname(transformers.__file__)}')
-          print(f'torch={os.path.dirname(torch.__file__)}')
-          " > _paths.txt
-          cat _paths.txt
-
-          HF_HOME=$(python -c "import os; print(os.environ.get('HF_HOME', os.path.expanduser('~/.cache/huggingface')))")
-
-          cat > privacy_filter_gui.spec << SPECEOF
+          cat > privacy_filter_gui.spec << 'SPECEOF'
           # -*- mode: python ; coding: utf-8 -*-
-          import os, sys
           block_cipher = None
-
-          hf_home = os.environ.get('HF_HOME', os.path.expanduser('~/.cache/huggingface'))
-          models_dir = os.path.join(hf_home, 'hub')
 
           a = Analysis(
               ['privacy_filter_gui.py'],
@@ -247,7 +238,6 @@ jobs:
               binaries=[],
               datas=[
                   ('privacy_filter', 'privacy_filter'),
-                  (models_dir, 'models/hub'),
               ],
               hiddenimports=[
                   'privacy_filter', 'privacy_filter.app', 'privacy_filter.app.main',
@@ -271,7 +261,11 @@ jobs:
               ],
               hookspath=[],
               runtime_hooks=[],
-              excludes=['matplotlib', 'scipy', 'pandas', 'notebook', 'IPython'],
+              excludes=[
+                  'matplotlib', 'scipy', 'pandas', 'notebook', 'IPython',
+                  'torch.distributed', 'torch.testing', 'torch.utils.tensorboard',
+                  'torch.cuda', 'torch.backends.cudnn', 'torch.backends.mps',
+              ],
               cipher=block_cipher,
               noarchive=False,
           )
@@ -288,6 +282,7 @@ jobs:
           SPECEOF
 
       - name: Build with PyInstaller
+        shell: bash
         run: |
           pyinstaller privacy_filter_gui.spec
 
