@@ -24,7 +24,7 @@
 
 <div class="tab-header">
     <div class="tab-header-text">
-        <h2><i class="fas fa-search-plus" style="color:var(--primary)"></i> Document Forgery Detection</h2>
+        <h2><i class="fas fa-search-plus" style="color:var(--primary)"></i> Forgensic: Document Forgery Detection</h2>
         <p>Classical forensic analysis to detect tampering, splicing, and manipulation in clinical documents.</p>
         
     </div>
@@ -53,7 +53,7 @@
     </div>
     <button class="process-btn" id="fgProcessBtn" onclick="window.FG_process()">
         <!-- <i class="fas fa-search"></i> -->
-        <span>Analyze</span>
+        <span>Process</span>
         <div class="loader" id="fgLoader"></div>
     </button>
 </div>
@@ -91,7 +91,7 @@
             <div id="fgFindingsMeta" class="fg-panel-meta">No document processed yet.</div>
         </div>
         <div id="fgFindingsList" class="fg-findings-list">
-            Upload a file and click "Analyze Document" to see forensic findings.
+            Upload a file and click "Process" to see forensic findings.
         </div>
     </div>
 
@@ -579,7 +579,7 @@ if preview_url:
         <div id="fgg-overview" class="guide-section">
             <div class="guide-hero">
                 <span style="display:inline-block;background:var(--primary);color:#fff;font-size:0.72rem;font-weight:600;padding:2px 10px;border-radius:20px;margin-bottom:10px;">CPU Only &mdash; No GPU Required</span>
-                <h2>Document Forgery Detection</h2>
+                <h2>Forgensic: Document Forgery Detection</h2>
                 <p>Classical computer vision and forensic analysis to detect tampering, splicing, and manipulation in clinical and administrative documents. Deterministic, explainable results with bounding-box overlays.</p>
             </div>
 
@@ -680,7 +680,7 @@ if preview_url:
             <h4>2. Analyze Document</h4>
 
             <p>
-                Click <strong>"Analyze Document"</strong>. The progress bar shows
+                Click <strong>"Process"</strong>. The progress bar shows
                 real-time status. Processing is typically under 2 seconds per page.
                 Multiple classical CV checks run on each page.
             </p>
