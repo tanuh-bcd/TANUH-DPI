@@ -826,6 +826,15 @@ if preview_url:
                 <div class="guide-pipeline-step"><h4>4. Run CLI (Optional)</h4><p>Or use terminal: <code>./ForgensicApp -i document.pdf -o ./output</code></p></div>
             </div>
 
+            <div class="guide-callout guide-callout-warning" style="background:#fffbeb; border-left:4px solid #f59e0b;">
+                <strong><i class="fas fa-exclamation-triangle" style="color:#f59e0b; margin-right:6px;"></i> OS Security Warnings</strong>
+                <p style="margin-top:8px; font-size:0.95rem;">Because this open-source tool is distributed without a paid code signing certificate, your operating system may flag it as an "Unverified Publisher". You can safely bypass this:</p>
+                <ul style="margin-top:8px; font-size:0.9rem; margin-bottom:0; padding-left:20px;">
+                    <li><strong>Windows:</strong> Click <em>More Info</em> &rarr; <em>Run Anyway</em> on the blue SmartScreen prompt.</li>
+                    <li><strong>macOS:</strong> Right-click the app and click <em>Open</em>, or go to System Settings > Privacy & Security and click <em>Open Anyway</em>.</li>
+                </ul>
+            </div>
+
             <div class="guide-callout guide-callout-success">
                 <strong>Source code is not exposed</strong>
                 The executable bundles everything into a compressed binary. Users cannot see or modify the pipeline source code.
