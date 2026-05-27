@@ -332,7 +332,24 @@ jobs:
           cp dist/pf-redact AppDir/usr/bin/
           chmod +x AppDir/usr/bin/pf-redact
 
-          cat > AppDir/usr/share/applications/pf-redact.desktop << 'DEOF'
+          # Generate a 256x256 PNG icon using Python (ImageMagick not available on runners)
+          python3 -c "
+          from PIL import Image, ImageDraw, ImageFont
+          img = Image.new('RGBA', (256, 256), (20, 134, 140, 255))
+          d = ImageDraw.Draw(img)
+          try:
+              font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 48)
+          except Exception:
+              font = ImageFont.load_default()
+          d.text((128, 100), 'PF', fill='white', anchor='mm', font=font)
+          d.text((128, 160), 'Redact', fill='white', anchor='mm', font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 28) if font.size > 10 else font)
+          img.save('pf-redact.png')
+          "
+          cp pf-redact.png AppDir/pf-redact.png
+          cp pf-redact.png AppDir/usr/share/icons/hicolor/256x256/apps/pf-redact.png
+          cp pf-redact.png AppDir/.DirIcon
+
+          cat > AppDir/pf-redact.desktop << 'DEOF'
           [Desktop Entry]
           Name=pf-redact
           Exec=pf-redact
@@ -341,9 +358,8 @@ jobs:
           Categories=Utility;
           Terminal=true
           DEOF
-          cp AppDir/usr/share/applications/pf-redact.desktop AppDir/
-          convert -size 256x256 xc:transparent AppDir/usr/share/icons/hicolor/256x256/apps/pf-redact.png 2>/dev/null || touch AppDir/usr/share/icons/hicolor/256x256/apps/pf-redact.png
-          ln -sf usr/share/icons/hicolor/256x256/apps/pf-redact.png AppDir/.DirIcon
+          cp AppDir/pf-redact.desktop AppDir/usr/share/applications/
+
           cat > AppDir/AppRun << 'AEOF'
           #!/bin/bash
           SELF=$(readlink -f "$0")
@@ -352,9 +368,9 @@ jobs:
           AEOF
           chmod +x AppDir/AppRun
 
-          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
           chmod +x appimagetool
-          ARCH=x86_64 ./appimagetool AppDir pf-redact-1.0.0-x86_64.AppImage
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool AppDir pf-redact-1.0.0-x86_64.AppImage
 
       - name: Verify AppImage
         run: |
