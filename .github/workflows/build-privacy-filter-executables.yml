@@ -58,7 +58,7 @@ jobs:
   build-linux-arm64:
     name: Linux ARM64 (binary)
     runs-on: ubuntu-22.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -78,9 +78,14 @@ jobs:
         working-directory: privacy-filter-local
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # CPU-only torch; fall back to default index if no aarch64 wheel on cpu index
+          pip install torch --index-url https://download.pytorch.org/whl/cpu \
+            || pip install torch
+          pip install safetensors
           pip install .
           pip install pyinstaller
+          # Remove torchvision/torchaudio if pulled in as transitive deps
+          pip uninstall -y torchvision torchaudio 2>/dev/null || true
 
       - name: Build binary with PyInstaller
         working-directory: privacy-filter-local
@@ -108,7 +113,7 @@ jobs:
   build-windows:
     name: Windows (exe)
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -128,8 +133,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install safetensors
           pip install .
           pip install pyinstaller
+          pip uninstall -y torchvision torchaudio 2>$null; $true
 
       - name: Build exe with PyInstaller
         working-directory: privacy-filter-local
@@ -156,7 +163,7 @@ jobs:
   build-macos:
     name: macOS (universal)
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -175,9 +182,12 @@ jobs:
         working-directory: privacy-filter-local
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install torch --index-url https://download.pytorch.org/whl/cpu \
+            || pip install torch
+          pip install safetensors
           pip install .
           pip install pyinstaller
+          pip uninstall -y torchvision torchaudio 2>/dev/null || true
 
       - name: Build binary with PyInstaller
         working-directory: privacy-filter-local

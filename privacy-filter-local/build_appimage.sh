@@ -127,6 +127,10 @@ rsync -a --quiet \
     --exclude='nvidia-*' \
     --exclude='triton/' \
     --exclude='triton-*' \
+    --exclude='torchvision/' \
+    --exclude='torchvision-*' \
+    --exclude='torchaudio/' \
+    --exclude='torchaudio-*' \
     --exclude='torch/test/' \
     "${SITE_PACKAGES}/" "${APPDIR}/usr/lib/python3/site-packages/"
 
@@ -171,10 +175,6 @@ draw.text((80, 80), 'PII', fill=(255,255,255))
 draw.text((60, 140), 'REDACT', fill=(252,165,165))
 img.save('${APPDIR}/${APP_NAME}.png')
 " 2>/dev/null || touch "${APPDIR}/${APP_NAME}.png"
-
-# Fix the PYTHONPATH in AppRun to match actual Python version
-sed -i "s|python3/site-packages|python3/site-packages:${APPDIR}/usr/lib/python${PYTHON_VERSION}|g" \
-    "${APPDIR}/AppRun" 2>/dev/null || true
 
 deactivate
 

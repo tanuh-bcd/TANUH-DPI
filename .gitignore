@@ -32,6 +32,7 @@ MANIFEST
 *.manifest
 *.spec
 !nhcx-local/nhcx-extract.spec
+!privacy-filter-local/pf-redact.spec
 
 # Installer logs
 pip-log.txt
